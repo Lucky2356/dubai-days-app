@@ -58,6 +58,8 @@ input[type=file]{font-size:12px;padding:10px}
 .running-header small{font-size:10px;color:#c1d9cc}
 .running-header button{border:1px solid #a2c4af;border-radius:7px;padding:7px 10px;min-height:39px;background:#fff;color:#1a503b;font-weight:800;font-size:11px}
 .running-actions{display:flex;align-items:center;gap:6px;flex:none}
+.running-actions #emergencyOpen{background:#fff0de;color:#7f321d;border-color:#f7bc8d}
+.running-actions #quickTrip{background:#e6f6ef}
 .running-actions #mapSettings{position:relative}
 .backup-prompt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 16px;background:#eaf6ed;border-bottom:1px solid #b5d9bd;color:#1b5036;font-size:12px;line-height:1.4}
 .backup-prompt[hidden]{display:none}
@@ -155,6 +157,32 @@ input[type=file]{font-size:12px;padding:10px}
   .backup-prompt-actions{width:100%}
   .backup-prompt button{min-height:40px;flex:1}
 }
+@media(max-width:540px){
+  .running-actions button span{display:none}
+  .running-header .save-state{display:none!important}
+  .running-actions button{min-width:43px;min-height:44px;padding:6px!important;font-size:13px!important}
+}
+.trip-quick-dialog{width:min(520px,calc(100vw - 20px))}
+.trip-quick-dialog select{display:block;width:100%;border:1px solid #bed3c5;background:#fff;border-radius:9px;min-height:44px;padding:9px;color:#214e3d;margin:5px 0 14px;font:inherit}
+.trip-quick-dialog label{display:block}
+.trip-quick-card{background:#eef7f0;border:1px solid #d0e4d4;border-radius:13px;padding:14px;margin:10px 0}
+.trip-quick-card small{color:#47735a;font-weight:750}
+.trip-quick-card h3{margin:6px 0 9px;font-size:19px}
+.trip-quick-card p{margin:0;color:#315843;white-space:pre-wrap}
+.trip-quick-actions{display:flex;gap:10px}
+.trip-quick-actions button,.trip-quick-dialog .quick-primary{min-height:44px;padding:10px;border:1px solid #9bbdab;border-radius:10px;background:#fff;color:#164e3a;font:inherit;font-size:13px;font-weight:800}
+.trip-quick-actions button{flex:1}
+.trip-quick-actions button:disabled{opacity:.45;cursor:default}
+.trip-quick-dialog .quick-primary{display:block;width:100%;background:#175b43;color:#fff;margin:15px 0 4px}
+.trip-quick-dialog details{margin-top:14px}
+.trip-quick-dialog summary{font-weight:800;color:#245841;cursor:pointer;min-height:44px;display:flex;align-items:center}
+.trip-quick-dialog ol{margin:8px 0;padding-left:24px;font-size:13px;line-height:1.7;color:#315543}
+.trip-quick-dialog ol li{padding:5px 0}
+.trip-quick-dialog ol li.current{font-weight:850;color:#125b3d}
+.emergency-numbers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.emergency-numbers a{display:grid;gap:4px;text-align:center;justify-items:center;padding:13px 4px;border:1px solid #f0ceb5;border-radius:10px;background:#fff4e8;color:#72351e;font-size:12px;font-weight:750;text-decoration:none}
+.emergency-numbers strong{font-size:25px}
+.trip-quick-dialog #emergencyMap{display:block;margin:15px 0;font-size:13px;font-weight:800;color:#175b43}
 .update-notice{position:fixed;z-index:1000;bottom:1rem;left:50%;transform:translateX(-50%);width:min(92vw,540px);background:#183448;color:#fff;border:1px solid #6fc6c2;border-radius:14px;box-shadow:0 10px 38px #0005;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font:inherit}
 .update-notice[hidden]{display:none}
 .update-notice button{border:0;border-radius:9px;padding:10px 14px;background:#e9bd73;color:#172b35;font-weight:700;cursor:pointer}

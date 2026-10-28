@@ -1,6 +1,6 @@
-import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=19';
-import {initPwaUpdates} from './vault-pwa.js?v=19';
-import {verifyBundleTrust} from './vault-trust.js?v=19';
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=20';
+import {initPwaUpdates} from './vault-pwa.js?v=20';
+import {verifyBundleTrust} from './vault-trust.js?v=20';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -276,7 +276,7 @@ function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
   const content=repairMarineURL(unpackExports(bundle.scripts['content.js']),abraStation);
   const companion=unpackExports(bundle.scripts['companion.js']);
   const logic=unpackExports(bundle.scripts['travel-logic.js']);
-  const protectedPrelude=prelude+`\nwindow.__vaultShowSettings=()=>parent.postMessage({type:'vault-show-settings',token:window.__vaultToken},'*');\ndocument.addEventListener('click',event=>{if(event.target.closest?.('[data-vault-backup]')){event.preventDefault();window.__vaultShowSettings()}},true);\nlet geoSequence=0;const pendingGeo=new Map();window.__vaultGetCurrentPosition=(success,error,options)=>{const requestId=++geoSequence;pendingGeo.set(requestId,{success,error});parent.postMessage({type:'vault-geolocation',token:window.__vaultToken,requestId},'*')};window.addEventListener('message',event=>{const m=event.data;if(event.source!==parent||m?.type!=='vault-geolocation-response'||m.token!==window.__vaultToken)return;const request=pendingGeo.get(m.requestId);if(!request)return;pendingGeo.delete(m.requestId);m.errorCode?request.error({code:m.errorCode}):request.success({coords:m.coords})});\n`;
+  const protectedPrelude=prelude+`\nwindow.__vaultShowSettings=()=>parent.postMessage({type:'vault-show-settings',token:window.__vaultToken},'*');\ndocument.addEventListener('click',event=>{if(event.target.closest?.('[data-vault-backup]')){event.preventDefault();window.__vaultShowSettings()}},true);\nwindow.addEventListener('message',event=>{const m=event.data;if(event.source!==parent||m?.token!==window.__vaultToken||m?.type!=='vault-open-assistant')return;document.querySelector('[data-travel-hub]')?.click()});\nlet geoSequence=0;const pendingGeo=new Map();window.__vaultGetCurrentPosition=(success,error,options)=>{const requestId=++geoSequence;pendingGeo.set(requestId,{success,error});parent.postMessage({type:'vault-geolocation',token:window.__vaultToken,requestId},'*')};window.addEventListener('message',event=>{const m=event.data;if(event.source!==parent||m?.type!=='vault-geolocation-response'||m.token!==window.__vaultToken)return;const request=pendingGeo.get(m.requestId);if(!request)return;pendingGeo.delete(m.requestId);m.errorCode?request.error({code:m.errorCode}):request.success({coords:m.coords})});\n`;
   const define=asScript(protectedPrelude)+asScript('window.__content=(()=>{'+content+';return {FOOD,SHOPS,EXTRAS,BOOKINGS,TIPS,CATEGORIES}})();')+
     asScript('window.__companion=(()=>{'+companion+';return {distanceKm,nearestLeg,dailyBudget,weatherDescription,offlineMapSvg,bookingIcs}})();')+
     asScript('window.__logic=(()=>{'+logic+';return {preferredTripContext,clockWithDay,analyzePlanB,weightedDailyBudget,spendingByDay,calendarForStages,extraRecommendations,validateImportedBundle,TRIP_START_UTC}})();');
@@ -301,6 +301,7 @@ function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
 
 async function lock(){
   try{await flush()}catch{return}
+  for(const id of ['quickTripDialog','emergencyDialog'])if($(id).open)$(id).close();
   $('privateFrame').srcdoc='';$('running').hidden=true;$('vaultGate').hidden=false;
   session=null;sessionKey=null;sessionToken=null;
   $('unlockPassword').value='';$('importPassword').value='';$('importConfirm').value='';$('updatePassword').value='';$('importFile').value='';
@@ -425,8 +426,12 @@ async function verifyProtectedBackup(){
   }
   button.disabled=true;result.textContent='Проверяем целостность зашифрованного файла…';
   try{
-    const summary=await inspectProtectedBackup(JSON.parse(await file.text()),password);
+    const record=JSON.parse(await file.text()),summary=await inspectProtectedBackup(record,password);
     result.textContent=`✓ Копия проверена: ${summary.days} дней, билетов: ${summary.tickets}. Данные приложения не изменены.`;
+    if(session&&record.ciphertext===encryptedRecord?.ciphertext){
+      session.lastBackupVerifiedAt=new Date().toISOString();
+      schedulePersist();await flush();void refreshVaultHealth();
+    }
   }catch{result.textContent='Не удалось проверить копию: неверный пароль, повреждённый или несовместимый файл.'}
   finally{button.disabled=false;$('verifyBackupPassword').value=''}
 }
@@ -440,12 +445,13 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v19')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v20')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
   if(!session)return;
-  $('vaultBackupStatus').textContent=session.lastBackupAt?'Последняя подготовленная копия: '+dateForUser(session.lastBackupAt)+'. Проверьте файл в загрузках.':'Вы ещё не скачивали защищённую копию на этом устройстве.';
+  const verified=session.lastBackupVerifiedAt&&session.lastBackupAt&&Date.parse(session.lastBackupVerifiedAt)>=Date.parse(session.lastBackupAt);
+  $('vaultBackupStatus').textContent=session.lastBackupAt?(verified?'✓ Проверенная копия: ':'Последняя подготовленная копия: ')+dateForUser(session.lastBackupAt)+(verified?'. Храните файл отдельно.':'. Проверьте файл в загрузках.'):'Вы ещё не скачивали защищённую копию на этом устройстве.';
   const {persisted,estimate}=await vaultStorageInfo();
   if(!session)return;
   const parts=[persisted===true?'Браузер закрепил данные':persisted===false?'Данные могут быть очищены браузером':'Статус закрепления недоступен'];
@@ -463,7 +469,7 @@ async function checkVaultReadiness(){
   const checks=[
     {level:'ok',message:'Все '+(session.bundle?.data?.trip?.days?.length||0)+' дней маршрута доступны после разблокировки'},
     {level:lastPersistError?'fail':'ok',message:lastPersistError?'Есть ошибка сохранения — нажмите «Повторить» над путеводителем':'Последние изменения сохранены в зашифрованном виде'},
-    {level:recent?'ok':'warn',message:recent?'Недавняя защищённая копия подготовлена: '+dateForUser(session.lastBackupAt):'Скачайте свежую защищённую копию перед поездкой'},
+    {level:recent&&Date.parse(session.lastBackupVerifiedAt||'')>=last?'ok':'warn',message:recent?(Date.parse(session.lastBackupVerifiedAt||'')>=last?'Недавняя защищённая копия проверена: ':'Подготовленная копия ещё не проверена: ')+dateForUser(session.lastBackupAt):'Скачайте свежую защищённую копию перед поездкой'},
     {level:persisted?'ok':'warn',message:persisted?'Хранение закреплено браузером':'Закрепите хранилище, если браузер это позволяет'},
     {level:offlineReady?'ok':'warn',message:offlineReady?'Оболочка сайта сохранена для офлайн-входа':'Откройте сайт ещё раз с интернетом, чтобы подготовить офлайн-вход'},
     {level:'ok',message:'Прикреплено файлов билетов: '+files+'. Откройте нужные QR и PDF заранее'},
@@ -585,6 +591,74 @@ for(const [inputId,labelId,previewId] of [['importFile','importFileName','import
     }catch(error){if(token===filePreviewTokens[inputId])preview.textContent='Этот файл не подходит: '+(error?.message||'неверный JSON')}
   });
 }
+// A small, offline-first view of the already-encrypted private itinerary.
+// It neither guesses the traveller's GPS location nor changes trip progress.
+function quickDays(){return session?.bundle?.data?.trip?.days||[]}
+function quickRender(){
+  const days=quickDays(),day=Math.min(days.length-1,Math.max(0,Number($('quickDay').value)||0));
+  const legs=days[day]?.legs||[],step=Math.max(0,Math.min(legs.length-1,Number($('quickStep').value)||0));
+  $('quickStep').replaceChildren();
+  legs.forEach((leg,index)=>{const option=new Option(`${index+1}. ${leg.title||leg.to||'Этап'}`,String(index));$('quickStep').add(option)});
+  if(legs.length)$('quickStep').value=String(step);
+  const leg=legs[step];
+  $('quickDestination').textContent=leg?.title||'Свободное время';
+  $('quickTime').textContent=(days[day]?.date||'')+' · '+(days[day]?.stageTimes?.[step]||'Время уточняйте по плану');
+  $('quickHow').textContent=leg?.how||'На этот день больше нет запланированных этапов.';
+  $('quickPrev').disabled=day===0&&step===0;
+  $('quickNext').disabled=day===days.length-1&&step===legs.length-1;
+  const list=$('quickDayList');list.replaceChildren();
+  legs.forEach((item,index)=>{const li=document.createElement('li');li.textContent=`${days[day].stageTimes?.[index]||'—'} · ${item.title||item.to||'Этап'}`;if(index===step)li.classList.add('current');list.append(li)});
+}
+function quickSelect(day,step){
+  const days=quickDays();if(!days.length)return;
+  $('quickDay').value=String(Math.max(0,Math.min(days.length-1,day)));
+  $('quickStep').replaceChildren(new Option('Выбранный этап',String(Math.max(0,step))));quickRender();
+}
+$('quickTrip').addEventListener('click',()=>{
+  if(!session)return;
+  const days=quickDays(),selected=(()=>{try{return JSON.parse(session.storage?.['dubai-days-personal-v1']||'{}')}catch{return {}}})();
+  const day=Number.isInteger(selected.lastDay)?Math.max(0,Math.min(days.length-1,selected.lastDay)):0;
+  $('quickDay').replaceChildren();
+  days.forEach((item,index)=>$('quickDay').add(new Option(`${index+1}. ${item.date}: ${item.title||'План дня'}`,String(index))));
+  $('quickDay').value=String(day);
+  const progress=selected.progress?.[day];
+  $('quickStep').replaceChildren();$('quickStep').add(new Option('Текущий этап',String(Number.isInteger(progress)?progress:0)));
+  quickRender();$('quickTripDialog').showModal();
+});
+$('quickDay').addEventListener('change',()=>quickSelect(Number($('quickDay').value),0));
+$('quickStep').addEventListener('change',()=>{const value=$('quickStep').value;quickRender();$('quickStep').value=value});
+for(const [id,direction] of [['quickPrev',-1],['quickNext',1]])$(id).addEventListener('click',()=>{
+  const days=quickDays(),day=Number($('quickDay').value),step=Number($('quickStep').value)+direction;
+  if(step<0)quickSelect(day-1,days[day-1]?.legs?.length-1||0);
+  else if(step>=(days[day]?.legs?.length||0))quickSelect(day+1,0);
+  else quickSelect(day,step);
+});
+$('quickTripClose').addEventListener('click',()=>$('quickTripDialog').close());
+$('quickAssistant').addEventListener('click',()=>{
+  $('quickTripDialog').close();
+  if(sessionToken)$('privateFrame').contentWindow?.postMessage({type:'vault-open-assistant',token:sessionToken},'*');
+});
+$('emergencyOpen').addEventListener('click',()=>{
+  if(!session)return;
+  const hotel=session.bundle?.data?.trip?.points?.hotel;
+  const hasCoords=Number.isFinite(hotel?.lat)&&Number.isFinite(hotel?.lng);
+  $('emergencyHotel').textContent=(hotel?.name||'Название отеля отсутствует в маршруте')+(hasCoords?` · ${hotel.lat.toFixed(5)}, ${hotel.lng.toFixed(5)}`:' · Координаты не указаны');
+  $('emergencyMap').hidden=!hasCoords;
+  if(hasCoords)$('emergencyMap').href=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.lat+','+hotel.lng)}`;
+  $('emergencyCard').disabled=!session.bundle?.assets?.emergencyPdf;
+  $('emergencyDialog').showModal();
+});
+$('emergencyClose').addEventListener('click',()=>$('emergencyDialog').close());
+$('emergencyCard').addEventListener('click',()=>{
+  if(!session)return;
+  try{
+    const bytes=unbase64(session.bundle.assets.emergencyPdf);
+    if(bytes.length<5||String.fromCharCode(...bytes.slice(0,5))!=='%PDF-')throw Error('Это не PDF');
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    const anchor=document.createElement('a');anchor.href=url;anchor.download='dubai-days-emergency-card.pdf';document.body.append(anchor);anchor.click();anchor.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }catch{alert('Не удалось подготовить PDF. Откройте раздел помощи внутри путеводителя.')}
+});
 $('unlockForm').addEventListener('submit',handleUnlock);
 $('importForm').addEventListener('submit',handleImport);
 $('restoreForm').addEventListener('submit',handleRestore);

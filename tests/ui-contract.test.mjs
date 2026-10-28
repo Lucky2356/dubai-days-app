@@ -36,12 +36,12 @@ test('mobile, keyboard and reduced-motion accommodations are present',()=>{
 
 test('PWA precaches the same current version and every imported module',()=>{
   for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js','vault-trust.js']){
-    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=19'));
+    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=20'));
   }
-  assert.match(html,/vault\.js\?v=19/);
-  assert.match(js,/vault-crypto\.js\?v=19/);
-  assert.match(js,/vault-pwa\.js\?v=19/);
-  assert.match(js,/vault-trust\.js\?v=19/);
+  assert.match(html,/vault\.js\?v=20/);
+  assert.match(js,/vault-crypto\.js\?v=20/);
+  assert.match(js,/vault-pwa\.js\?v=20/);
+  assert.match(js,/vault-trust\.js\?v=20/);
 });
 
 test('private iframe uses an opaque origin instead of same-origin privileges',()=>{
@@ -50,6 +50,14 @@ test('private iframe uses an opaque origin instead of same-origin privileges',()
   assert.match(tag,/sandbox="[^"]*allow-scripts/);
   assert.doesNotMatch(tag,/allow-same-origin/);
   assert.match(js,/event\.origin!=='null'/);
+});
+
+test('quick itinerary and emergency actions are accessible and offline-capable',()=>{
+  for(const id of ['quickTrip','emergencyOpen','quickTripDialog','quickDay','quickStep','quickAssistant','emergencyDialog','emergencyCard'])assert.match(html,new RegExp(`id="${id}"`));
+  assert.match(html,/href="tel:999"/);assert.match(html,/href="tel:998"/);assert.match(html,/href="tel:997"/);
+  assert.match(js,/session\.bundle\?\.data\?\.trip\?\.points\?\.hotel/);
+  assert.match(js,/__vaultLocalStorage/);assert.match(js,/vault-open-assistant/);
+  assert.match(js,/emergencyPdf/);
 });
 
 test('first-run file selection supports drag and drop without bypassing checks',()=>{

@@ -38,6 +38,10 @@ node tests/lifecycle.test.mjs
 node tests/bridge.test.mjs
 node tests/render-pipeline.test.mjs
 node tests/bundle-trust.test.mjs
+
+# Дополнительная GitHub Actions-проверка Browser acceptance QA запускает
+# Chromium в чистом профиле: ширины 320–1280, доступность, импорт подписанного
+# синтетического маршрута, офлайн-перезагрузку, шифрование и восстановление.
 ```
 
 ## Не подтверждено автоматическими тестами

@@ -8,11 +8,11 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=19">
+  <link rel="stylesheet" href="./vault.css?v=20">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"></noscript>
-  <script type="module" src="./vault.js?v=19"></script>
+  <script type="module" src="./vault.js?v=20"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -71,7 +71,7 @@
     <footer>Dubai Days · Личные данные остаются на вашем устройстве</footer>
   </main>
   <section class="running" id="running" hidden aria-label="Личный путеводитель">
-    <div class="running-header"><span><strong>dubai.days</strong><small id="saveState" class="save-state" role="status" aria-live="polite">✓ Сохранено на устройстве</small></span><div class="running-actions"><button type="button" id="mapSettings" aria-label="Настройки карты и данных">⚙ Настройки</button><button type="button" id="lockVault">🔒 Закрыть</button></div></div>
+    <div class="running-header"><span><strong>dubai.days</strong><small id="saveState" class="save-state" role="status" aria-live="polite">✓ Сохранено на устройстве</small></span><div class="running-actions"><button type="button" id="quickTrip" aria-label="Что делать сейчас" aria-haspopup="dialog">⚡ <span>Сейчас</span></button><button type="button" id="emergencyOpen" aria-label="Экстренная помощь" aria-haspopup="dialog">SOS</button><button type="button" id="mapSettings" aria-label="Настройки карты и данных">⚙ <span>Настройки</span></button><button type="button" id="lockVault" aria-label="Закрыть путеводитель">🔒 <span>Закрыть</span></button></div></div>
     <div class="save-warning" id="saveWarning" role="alert" hidden>Изменения пока не сохранены. Проверьте свободное место или доступность хранилища. <button type="button" id="retrySave">Повторить</button></div>
     <div class="backup-prompt" id="backupPrompt" role="status" hidden><span>Рекомендуем сохранить зашифрованную копию маршрута и билетов.</span><div class="backup-prompt-actions"><button type="button" id="backupPromptOpen">Открыть настройки</button><button type="button" id="backupPromptLater">Позже</button></div></div>
     <iframe id="privateFrame" title="Ваш личный путеводитель" referrerpolicy="no-referrer" allow="geolocation" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals allow-forms allow-downloads"></iframe>
@@ -116,6 +116,25 @@
         <div class="map-dialog-actions"><button type="button" id="cancelMapSettings">Отмена</button><button type="submit" class="primary-button" id="saveMapSettings">Сохранить карту</button></div>
       </form>
     </details>
+  </dialog>
+  <dialog class="map-dialog trip-quick-dialog" id="quickTripDialog" aria-labelledby="quickTripTitle">
+    <div class="vault-dialog-header"><h2 id="quickTripTitle">Что делать сейчас</h2><button type="button" id="quickTripClose" aria-label="Закрыть быстрый маршрут">×</button></div>
+    <p class="map-dialog-note">Подсказка по вашему плану, а не отслеживание местоположения. Перед выходом уточняйте фактическое время и транспорт.</p>
+    <label for="quickDay">День маршрута</label><select id="quickDay"></select>
+    <label for="quickStep">Этап</label><select id="quickStep"></select>
+    <div class="trip-quick-card"><small id="quickTime"></small><h3 id="quickDestination"></h3><p id="quickHow"></p></div>
+    <div class="trip-quick-actions"><button type="button" id="quickPrev">← Назад</button><button type="button" id="quickNext">Следующий →</button></div>
+    <details id="quickDetails"><summary>Показать полный план дня</summary><ol id="quickDayList"></ol></details>
+    <button type="button" class="quick-primary" id="quickAssistant">Открыть помощник поездки</button>
+  </dialog>
+  <dialog class="map-dialog trip-quick-dialog" id="emergencyDialog" aria-labelledby="emergencyTitle">
+    <div class="vault-dialog-header"><h2 id="emergencyTitle">Помощь в Дубае</h2><button type="button" id="emergencyClose" aria-label="Закрыть экстренную помощь">×</button></div>
+    <p>В случае опасности звоните в экстренные службы ОАЭ. Номера доступны и без интернета.</p>
+    <div class="emergency-numbers"><a href="tel:999">Полиция <strong>999</strong></a><a href="tel:998">Скорая <strong>998</strong></a><a href="tel:997">Пожарные <strong>997</strong></a></div>
+    <h3>Ваш отель</h3><p id="emergencyHotel">Информация об отеле загружается из личного маршрута.</p>
+    <button type="button" class="quick-primary" id="emergencyCard">↓ Скачать офлайн-карточку PDF</button>
+    <a id="emergencyMap" href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">Открыть расположение отеля на карте ↗</a>
+    <p class="map-dialog-note">Адрес и координаты доступны без сети. Карта по ссылке требует интернет. Источник номеров: <a href="https://u.ae/en/information-and-services/justice-safety-and-the-law/Safety/handling-emergencies" target="_blank" rel="noopener noreferrer">правительство ОАЭ</a>.</p>
   </dialog>
 </body>
 </html>

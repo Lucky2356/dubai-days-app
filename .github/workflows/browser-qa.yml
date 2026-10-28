@@ -19,7 +19,7 @@ jobs:
           node-version: '22'
       - name: Install headless browser
         run: |
-          npm install --no-save playwright@1.56.1
+          npm install --no-save playwright@1.56.1 axe-core@4.10.3
           npx playwright install --with-deps chromium
       - name: Test desktop and emulated mobile viewports
         run: node tests/browser-qa.mjs
