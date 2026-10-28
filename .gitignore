@@ -1,0 +1,7 @@
+# Personal itinerary files must never be committed to the public repository.
+*.json
+*.zip
+.private/
+private/
+*.private.*
+.DS_Store
