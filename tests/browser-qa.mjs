@@ -3,13 +3,18 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
+import {gunzipSync} from 'node:zlib';
 import {resolve,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {chromium} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright';
 import axe from 'axe-core';
 
 const root=fileURLToPath(new URL('../public/',import.meta.url));
 const fixture=fileURLToPath(new URL('./fixtures/signed-synthetic.json',import.meta.url));
+const compressedStressFixture=fileURLToPath(new URL('./fixtures/signed-stress.json.gz',import.meta.url));
+const engine=process.env.DUBAI_QA_ENGINE||'chromium';
+const browserTypes={chromium,firefox,webkit};
+if(!Object.hasOwn(browserTypes,engine))throw Error(`Unsupported QA browser: ${engine}`);
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const server=createServer(async(req,res)=>{
   try{
@@ -31,7 +36,7 @@ async function auditAccessibility(page,label){
 }
 let browser;
 try{
-  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+  browser=await browserTypes[engine].launch({headless:true,...(engine==='chromium'?{args:['--no-sandbox']}:{})});
   for(const width of [320,375,390,768,1280]){
     const context=await browser.newContext({viewport:{width,height:820},reducedMotion:'reduce'});
     const page=await context.newPage();
@@ -43,7 +48,8 @@ try{
     if(width===390){
       await auditAccessibility(page,'first run');
       const fcp=await page.evaluate(()=>performance.getEntriesByType('paint').find(entry=>entry.name==='first-contentful-paint')?.startTime||null);
-      console.log(`INFO first contentful paint ${fcp?.toFixed(1)??'unavailable'} ms (CI measurement, not a speed guarantee)`);
+      console.log(`INFO ${engine} first contentful paint ${fcp?.toFixed(1)??'unavailable'} ms (CI measurement, not a speed guarantee)`);
+      if(fcp!==null)assert.ok(fcp<5000,`Public shell first contentful paint exceeded 5s: ${fcp} ms`);
       await page.locator('#importFile').setInputFiles(fixture);
       await page.locator('#importPreview').getByText('Цифровая подпись подтверждена',{exact:false}).waitFor({timeout:15000});
       await page.locator('#importPassword').fill('BrowserQaPassword-2026!');
@@ -110,8 +116,22 @@ try{
       assert.match(restoredValue,/browser-qa-marker/);
       await restoreContext.close();
       console.log('PASS backup export, integrity verification and restore in fresh browser context');
+      const loadContext=await browser.newContext({viewport:{width:390,height:820}});
+      const loaded=await loadContext.newPage();await loaded.goto(url);
+      const loadStart=Date.now();
+      await loaded.locator('#importFile').setInputFiles({name:'signed-stress.json',mimeType:'application/json',buffer:gunzipSync(await readFile(compressedStressFixture))});
+      await loaded.locator('#importPreview').getByText('Цифровая подпись подтверждена',{exact:false}).waitFor({timeout:20000});
+      await loaded.locator('#importPassword').fill('StressQaPassword-2026!');
+      await loaded.locator('#importConfirm').fill('StressQaPassword-2026!');
+      await loaded.locator('#trustedImport').check();
+      await loaded.locator('#importButton').click();
+      await loaded.locator('#running').waitFor({state:'visible',timeout:30000}).catch(async error=>{throw Error(`${error.message}\nStress import: ${await loaded.locator('#vaultStatus').innerText()}`)});
+      const elapsed=Date.now()-loadStart;
+      assert.ok(elapsed<25000,`Stress bundle import exceeded 25s: ${elapsed}ms`);
+      console.log(`PASS ${engine} 695 KB signed synthetic stress bundle, 61 stages, encrypted in ${elapsed} ms`);
+      await loadContext.close();
     }
-    console.log(`PASS responsive Chromium viewport ${width}px`);
+    console.log(`PASS ${engine} responsive viewport ${width}px`);
     await context.close();
   }
 }finally{

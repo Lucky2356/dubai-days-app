@@ -9,9 +9,13 @@ permissions:
   contents: read
 
 jobs:
-  chromium:
+  cross-browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,6 +24,8 @@ jobs:
       - name: Install headless browser
         run: |
           npm install --no-save playwright@1.56.1 axe-core@4.10.3
-          npx playwright install --with-deps chromium
-      - name: Test desktop and emulated mobile viewports
+          npx playwright install --with-deps ${{ matrix.engine }}
+      - name: Test responsive, offline, accessibility, recovery and stress scenarios
+        env:
+          DUBAI_QA_ENGINE: ${{ matrix.engine }}
         run: node tests/browser-qa.mjs

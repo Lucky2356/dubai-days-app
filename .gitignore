@@ -3,6 +3,8 @@
 # Only hand-authored, non-personal fixtures used by automated security tests.
 !tests/fixtures/
 !tests/fixtures/*.json
+# Stress fixtures are generated locally and committed only as compressed data.
+tests/fixtures/*-stress.json
 *.pem
 *.key
 *.zip
