@@ -148,10 +148,13 @@ try{
       const restoredValue=await restored.frameLocator('#privateFrame').locator('#appScreen').evaluate(()=>window.__vaultLocalStorage.getItem('dubai-days-personal-v1'));
       assert.match(restoredValue,/browser-qa-marker/);
       await restored.locator('#travelExtrasOpen').click();
+      await restored.locator('#extrasDay').selectOption('0');
       await restored.locator('#extrasMode').selectOption('diary');
       assert.equal(await restored.locator('#extrasDiaryText').inputValue(),'Тестовая заметка Dubai Days, данные не настоящие');
       await restored.locator('#extrasMode').selectOption('checklist');
       assert.equal(await restored.locator('#extrasChecklistItems input').first().isChecked(),true);
+      await restored.locator('#extrasMode').selectOption('planb');
+      assert.equal(await restored.locator('#extrasDelay').inputValue(),'90');
       await restoreContext.close();
       console.log('PASS backup export, integrity verification and restore in fresh browser context');
       const loadContext=await browser.newContext({viewport:{width:390,height:820}});
