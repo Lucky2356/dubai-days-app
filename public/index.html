@@ -8,11 +8,11 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=20">
+  <link rel="stylesheet" href="./vault.css?v=21">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"></noscript>
-  <script type="module" src="./vault.js?v=20"></script>
+  <script type="module" src="./vault.js?v=21"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -71,7 +71,7 @@
     <footer>Dubai Days · Личные данные остаются на вашем устройстве</footer>
   </main>
   <section class="running" id="running" hidden aria-label="Личный путеводитель">
-    <div class="running-header"><span><strong>dubai.days</strong><small id="saveState" class="save-state" role="status" aria-live="polite">✓ Сохранено на устройстве</small></span><div class="running-actions"><button type="button" id="quickTrip" aria-label="Что делать сейчас" aria-haspopup="dialog">⚡ <span>Сейчас</span></button><button type="button" id="emergencyOpen" aria-label="Экстренная помощь" aria-haspopup="dialog">SOS</button><button type="button" id="mapSettings" aria-label="Настройки карты и данных">⚙ <span>Настройки</span></button><button type="button" id="lockVault" aria-label="Закрыть путеводитель">🔒 <span>Закрыть</span></button></div></div>
+    <div class="running-header"><span><strong>dubai.days</strong><small id="saveState" class="save-state" role="status" aria-live="polite">✓ Сохранено на устройстве</small></span><div class="running-actions"><button type="button" id="quickTrip" aria-label="Что делать сейчас" aria-haspopup="dialog">⚡ <span>Сейчас</span></button><button type="button" id="travelExtrasOpen" aria-label="Дополнительные инструменты поездки" aria-haspopup="dialog">☷ <span>Ещё</span></button><button type="button" id="emergencyOpen" aria-label="Экстренная помощь" aria-haspopup="dialog">SOS</button><button type="button" id="mapSettings" aria-label="Настройки карты и данных">⚙ <span>Настройки</span></button><button type="button" id="lockVault" aria-label="Закрыть путеводитель">🔒 <span>Закрыть</span></button></div></div>
     <div class="save-warning" id="saveWarning" role="alert" hidden>Изменения пока не сохранены. Проверьте свободное место или доступность хранилища. <button type="button" id="retrySave">Повторить</button></div>
     <div class="backup-prompt" id="backupPrompt" role="status" hidden><span>Рекомендуем сохранить зашифрованную копию маршрута и билетов.</span><div class="backup-prompt-actions"><button type="button" id="backupPromptOpen">Открыть настройки</button><button type="button" id="backupPromptLater">Позже</button></div></div>
     <iframe id="privateFrame" title="Ваш личный путеводитель" referrerpolicy="no-referrer" allow="geolocation" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals allow-forms allow-downloads"></iframe>
@@ -132,9 +132,52 @@
     <p>В случае опасности звоните в экстренные службы ОАЭ. Номера доступны и без интернета.</p>
     <div class="emergency-numbers"><a href="tel:999">Полиция <strong>999</strong></a><a href="tel:998">Скорая <strong>998</strong></a><a href="tel:997">Пожарные <strong>997</strong></a></div>
     <h3>Ваш отель</h3><p id="emergencyHotel">Информация об отеле загружается из личного маршрута.</p>
+    <button type="button" class="quick-primary" id="taxiCardOpen">🚕 Показать адрес таксисту</button>
     <button type="button" class="quick-primary" id="emergencyCard">↓ Скачать офлайн-карточку PDF</button>
     <a id="emergencyMap" href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">Открыть расположение отеля на карте ↗</a>
     <p class="map-dialog-note">Адрес и координаты доступны без сети. Карта по ссылке требует интернет. Источник номеров: <a href="https://u.ae/en/information-and-services/justice-safety-and-the-law/Safety/handling-emergencies" target="_blank" rel="noopener noreferrer">правительство ОАЭ</a>.</p>
+  </dialog>
+  <dialog class="map-dialog trip-quick-dialog" id="travelExtrasDialog" aria-labelledby="travelExtrasTitle">
+    <div class="vault-dialog-header"><h2 id="travelExtrasTitle">Инструменты поездки</h2><button type="button" id="travelExtrasClose" aria-label="Закрыть инструменты">×</button></div>
+    <label for="extrasMode">Что хотите сделать?</label>
+    <select id="extrasMode"><option value="checklist">✓ Собраться на день</option><option value="planb">↝ Изменился план</option><option value="search">⌕ Найти место или билет</option><option value="diary">✎ Заметки дня</option><option value="taxi">🚕 Показать адрес отеля</option><option value="share">⇄ Поделиться с попутчиком</option></select>
+    <div id="extrasDayRow"><label for="extrasDay">День поездки</label><select id="extrasDay"></select></div>
+    <section id="extrasChecklist" class="extras-panel" aria-label="Чек-лист на день">
+      <p>Подсказки зависят от программы дня. Это не обязательные требования — отмечайте только нужное.</p>
+      <div id="extrasChecklistItems" class="extras-list"></div>
+      <p id="extrasChecklistStatus" role="status" aria-live="polite"></p>
+    </section>
+    <section id="extrasPlanb" class="extras-panel" hidden aria-label="Альтернативный план">
+      <p>Предварительный сценарий: исходный маршрут, билеты и отметки не меняются.</p>
+      <label for="extrasDelay">На сколько задержались?</label><select id="extrasDelay"><option value="30">30 минут</option><option value="60" selected>1 час</option><option value="90">1,5 часа</option><option value="120">2 часа</option></select>
+      <button type="button" id="extrasSuggest" class="quick-primary">Предложить, что пропустить</button>
+      <div id="extrasSkip" class="extras-list"></div>
+      <h3>Предварительный результат</h3><ol id="extrasPlanPreview"></ol>
+      <p id="extrasPlanWarning" class="map-dialog-note"></p>
+      <button type="button" id="extrasSavePlan" class="quick-primary">Сохранить этот вариант</button>
+      <p id="extrasPlanStatus" role="status" aria-live="polite"></p>
+    </section>
+    <section id="extrasSearch" class="extras-panel" hidden aria-label="Поиск по поездке">
+      <label for="extrasQuery">Место, день, билет или заметка</label><input id="extrasQuery" type="search" autocomplete="off" placeholder="Например, Лувр или метро">
+      <div id="extrasSearchResults" class="extras-results" role="status" aria-live="polite"></div>
+      <article id="extrasPlaceCard" class="trip-quick-card" hidden><small id="extrasPlaceTime"></small><h3 id="extrasPlaceTitle"></h3><p id="extrasPlaceHow"></p><a id="extrasPlaceMap" target="_blank" rel="noopener noreferrer" hidden>Открыть карту ↗</a></article>
+    </section>
+    <section id="extrasDiary" class="extras-panel" hidden aria-label="Личные заметки">
+      <p>Ваш дневник хранится в той же зашифрованной копии, что и маршрут. Фотографии пока не добавляются, чтобы не переполнить браузер.</p>
+      <label for="extrasDiaryText">Что запомнилось сегодня?</label><textarea id="extrasDiaryText" maxlength="2500" rows="7" placeholder="Впечатления, полезные советы, что стоит повторить…"></textarea>
+      <button type="button" id="extrasDiarySave" class="quick-primary">Сохранить заметку</button><p id="extrasDiaryStatus" role="status" aria-live="polite"></p>
+    </section>
+    <section id="extrasTaxi" class="extras-panel" hidden aria-label="Адрес для такси">
+      <p>Покажите экран водителю. Адрес и название сверены с официальным сайтом отеля.</p>
+      <div class="trip-quick-card taxi-display"><h3 id="extrasTaxiEnglish"></h3><p id="extrasTaxiAddress"></p><p id="extrasTaxiArabic" lang="ar" dir="rtl"></p><p id="extrasTaxiCoordinates"></p></div>
+      <button type="button" id="extrasTaxiCopy" class="quick-primary">Скопировать адрес</button>
+      <a href="https://www.rotana.com/edge/unitedarabemirates/dubai/arabianparkdubai" target="_blank" rel="noopener noreferrer">Официальный сайт отеля ↗</a><p id="extrasTaxiStatus" role="status" aria-live="polite"></p>
+    </section>
+    <section id="extrasShare" class="extras-panel" hidden aria-label="Для двоих">
+      <p>Передайте второму путешественнику зашифрованную резервную копию и пароль по разным каналам. В неё входят маршрут, брони, отметки и расходы. <strong>Автоматической синхронизации между устройствами нет.</strong></p>
+      <button type="button" id="extrasShareBackup" class="quick-primary">↓ Скачать защищённую копию</button>
+      <p class="map-dialog-note">На втором устройстве откройте Dubai Days → «Восстановить защищённую копию». После восстановления изменения будут независимыми.</p>
+    </section>
   </dialog>
 </body>
 </html>

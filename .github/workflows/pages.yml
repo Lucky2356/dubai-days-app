@@ -36,6 +36,7 @@ jobs:
           node --check public/vault-crypto.js
           node --check public/vault-pwa.js
           node --check public/vault-trust.js
+          node --check public/vault-extras.js
           node --check public/sw.js
           node tests/pwa-update.test.mjs
           node tests/vault-integrity.test.mjs

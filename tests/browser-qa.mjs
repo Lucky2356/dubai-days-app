@@ -70,6 +70,25 @@ try{
       await page.locator('#emergencyDialog').waitFor({state:'visible'});
       assert.match(await page.locator('#emergencyDialog').innerText(),/999[\s\S]*998[\s\S]*997/);
       await page.locator('#emergencyClose').click();
+      await page.locator('#travelExtrasOpen').click();
+      await page.locator('#travelExtrasDialog').waitFor({state:'visible'});
+      await page.locator('#extrasChecklistItems input').first().check();
+      await page.locator('#extrasMode').selectOption('diary');
+      await page.locator('#extrasDiaryText').fill('Тестовая заметка Dubai Days, данные не настоящие');
+      await page.locator('#extrasDiarySave').click();
+      await page.locator('#extrasMode').selectOption('planb');
+      await page.locator('#extrasDelay').selectOption('90');
+      await page.locator('#extrasSavePlan').click();
+      await page.locator('#extrasPlanStatus').getByText('Вариант сохранён',{exact:false}).waitFor();
+      await page.locator('#extrasMode').selectOption('search');
+      await page.locator('#extrasQuery').fill('test-1');
+      await page.locator('#extrasSearchResults button').first().waitFor({state:'visible'});
+      await page.locator('#extrasMode').selectOption('taxi');
+      await page.locator('#extrasTaxiEnglish').waitFor({state:'visible'});
+      await page.locator('#extrasMode').selectOption('share');
+      assert.match(await page.locator('#extrasShare').innerText(),/Автоматической синхронизации/);
+      await auditAccessibility(page,'trip tools dialog');
+      await page.locator('#travelExtrasClose').click();
       await auditAccessibility(page,'unlocked shell');
       // A synthetic expense marker exercises the same encrypted local storage bridge.
       await frame.locator('#appScreen').evaluate(()=>window.__vaultLocalStorage.setItem('dubai-days-personal-v1',JSON.stringify({lastDay:2,progress:{2:1},expenses:[{note:'browser-qa-marker',aed:7}]})));
@@ -102,11 +121,11 @@ try{
         // Inspector, including service-worker responses. Check cache integrity
         // here; offline navigation itself remains an explicitly unverified case.
         const cached=await page.evaluate(async()=>{
-          const cache=await caches.open('dubai-days-private-shell-v20');
-          const files=['./','./vault.js?v=20','./vault-crypto.js?v=20','./vault-pwa.js?v=20','./vault-trust.js?v=20'];
+          const cache=await caches.open('dubai-days-private-shell-v21');
+          const files=['./','./vault.js?v=21','./vault-crypto.js?v=21','./vault-pwa.js?v=21','./vault-trust.js?v=21','./vault-extras.js?v=21'];
           return Promise.all(files.map(async file=>Boolean(await cache.match(new URL(file,location.href)))));
         });
-        assert.deepEqual(cached,[true,true,true,true,true]);
+        assert.deepEqual(cached,[true,true,true,true,true,true]);
         console.log('PASS webkit service-worker cache integrity; offline navigation needs a real Safari environment');
       }else{
         await context.setOffline(true);
@@ -127,6 +146,11 @@ try{
       await restored.locator('#running').waitFor({state:'visible',timeout:30000}).catch(async error=>{throw Error(`${error.message}\nRestore status: ${await restored.locator('#vaultStatus').innerText()}`)});
       const restoredValue=await restored.frameLocator('#privateFrame').locator('#appScreen').evaluate(()=>window.__vaultLocalStorage.getItem('dubai-days-personal-v1'));
       assert.match(restoredValue,/browser-qa-marker/);
+      await restored.locator('#travelExtrasOpen').click();
+      await restored.locator('#extrasMode').selectOption('diary');
+      assert.equal(await restored.locator('#extrasDiaryText').inputValue(),'Тестовая заметка Dubai Days, данные не настоящие');
+      await restored.locator('#extrasMode').selectOption('checklist');
+      assert.equal(await restored.locator('#extrasChecklistItems input').first().isChecked(),true);
       await restoreContext.close();
       console.log('PASS backup export, integrity verification and restore in fresh browser context');
       const loadContext=await browser.newContext({viewport:{width:390,height:820}});

@@ -1,6 +1,7 @@
-import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=20';
-import {initPwaUpdates} from './vault-pwa.js?v=20';
-import {verifyBundleTrust} from './vault-trust.js?v=20';
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=21';
+import {initPwaUpdates} from './vault-pwa.js?v=21';
+import {verifyBundleTrust} from './vault-trust.js?v=21';
+import {initTravelExtras} from './vault-extras.js?v=21';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -13,6 +14,7 @@ const MAX_RESTORE_BYTES=128*1024*1024; // Also accept older, larger backups.
 const $=id=>document.getElementById(id);
 let encryptedRecord=null,session=null,sessionKey=null,sessionToken=null;
 let persistQueue=Promise.resolve(),persistQueued=false,lastPersistError=null;
+let travelExtrasView=null;
 
 function openDB(){return new Promise((resolve,reject)=>{
   const request=indexedDB.open(DB_NAME,1);
@@ -301,6 +303,7 @@ function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
 
 async function lock(){
   try{await flush()}catch{return}
+  travelExtrasView?.close();
   for(const id of ['quickTripDialog','emergencyDialog'])if($(id).open)$(id).close();
   $('privateFrame').srcdoc='';$('running').hidden=true;$('vaultGate').hidden=false;
   session=null;sessionKey=null;sessionToken=null;
@@ -445,7 +448,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v20')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v21')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -707,6 +710,7 @@ $('mapSettingsForm').addEventListener('submit',async event=>{
   }finally{button.disabled=false}
 });
 $('retrySave').addEventListener('click',()=>{schedulePersist();flush().catch(()=>{})});
+travelExtrasView=initTravelExtras({getSession:()=>session,save:()=>schedulePersist(),downloadBackup:exportProtectedBackup});
 try{
   if(!crypto?.subtle||!window.indexedDB)throw Error('Для защиты нужен современный браузер и HTTPS.');
   encryptedRecord=await database('get');

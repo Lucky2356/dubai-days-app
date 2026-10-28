@@ -162,6 +162,7 @@ input[type=file]{font-size:12px;padding:10px}
   .running-header .save-state{display:none!important}
   .running-actions button{min-width:43px;min-height:44px;padding:6px!important;font-size:13px!important}
 }
+@media(max-width:370px){.running-header>span strong{display:none}.running-header{justify-content:center;padding:5px 8px}.running-actions{width:100%;justify-content:space-between}}
 .trip-quick-dialog{width:min(520px,calc(100vw - 20px))}
 .trip-quick-dialog select{display:block;width:100%;border:1px solid #bed3c5;background:#fff;border-radius:9px;min-height:44px;padding:9px;color:#214e3d;margin:5px 0 14px;font:inherit}
 .trip-quick-dialog label{display:block}
@@ -183,6 +184,22 @@ input[type=file]{font-size:12px;padding:10px}
 .emergency-numbers a{display:grid;gap:4px;text-align:center;justify-items:center;padding:13px 4px;border:1px solid #f0ceb5;border-radius:10px;background:#fff4e8;color:#72351e;font-size:12px;font-weight:750;text-decoration:none}
 .emergency-numbers strong{font-size:25px}
 .trip-quick-dialog #emergencyMap{display:block;margin:15px 0;font-size:13px;font-weight:800;color:#175b43}
+.extras-panel{margin-top:12px;border-top:1px solid #dce9e0;padding-top:12px}
+.extras-panel[hidden],#extrasDayRow[hidden]{display:none}
+.extras-panel p{line-height:1.55}
+.extras-panel textarea{display:block;width:100%;min-height:160px;resize:vertical;border:1px solid #bcd3c3;border-radius:10px;padding:12px;font:inherit;font-size:15px;line-height:1.55;color:#163b2c}
+.extras-list{display:grid;gap:8px;margin:12px 0}
+.extras-checkline{display:flex;align-items:flex-start;gap:10px;border:1px solid #dbe9de;border-radius:9px;padding:10px 11px;font-size:13px;font-weight:600;line-height:1.45;cursor:pointer;background:#f8fbf8}
+.extras-checkline input{width:20px;min-width:20px;height:20px;min-height:20px;flex:none;margin:0;accent-color:#17704a}
+.extras-skipped{opacity:.64;text-decoration:line-through}
+.extras-results{display:grid;gap:7px;max-height:260px;overflow:auto;margin-top:11px}
+.extras-result{display:grid;text-align:left;gap:4px;min-height:49px;background:#f7fbf8;border:1px solid #dbe7de;border-radius:9px;padding:10px;color:#20573e;font:inherit;cursor:pointer}
+.extras-result strong{font-size:13px}.extras-result small{font-size:11px;line-height:1.5;color:#566e5e}
+.extras-panel #extrasPlaceMap{display:block;margin-top:10px;color:#145f43;font-weight:800;font-size:13px}
+.extras-panel #extrasPlaceMap[hidden]{display:none}
+.taxi-display{text-align:center}.taxi-display h3{font-size:21px}
+.taxi-display #extrasTaxiArabic{font-size:24px;line-height:1.7;color:#194d38;padding:12px 0;border-top:1px solid #d0e4d4;border-bottom:1px solid #d0e4d4}
+.taxi-display #extrasTaxiCoordinates{font-size:12px}
 .update-notice{position:fixed;z-index:1000;bottom:1rem;left:50%;transform:translateX(-50%);width:min(92vw,540px);background:#183448;color:#fff;border:1px solid #6fc6c2;border-radius:14px;box-shadow:0 10px 38px #0005;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font:inherit}
 .update-notice[hidden]{display:none}
 .update-notice button{border:0;border-radius:9px;padding:10px 14px;background:#e9bd73;color:#172b35;font-weight:700;cursor:pointer}

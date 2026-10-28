@@ -35,13 +35,14 @@ test('mobile, keyboard and reduced-motion accommodations are present',()=>{
 });
 
 test('PWA precaches the same current version and every imported module',()=>{
-  for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js','vault-trust.js']){
-    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=20'));
+  for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js','vault-trust.js','vault-extras.js']){
+    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=21'));
   }
-  assert.match(html,/vault\.js\?v=20/);
-  assert.match(js,/vault-crypto\.js\?v=20/);
-  assert.match(js,/vault-pwa\.js\?v=20/);
-  assert.match(js,/vault-trust\.js\?v=20/);
+  assert.match(html,/vault\.js\?v=21/);
+  assert.match(js,/vault-crypto\.js\?v=21/);
+  assert.match(js,/vault-pwa\.js\?v=21/);
+  assert.match(js,/vault-trust\.js\?v=21/);
+  assert.match(js,/vault-extras\.js\?v=21/);
 });
 
 test('private iframe uses an opaque origin instead of same-origin privileges',()=>{
@@ -58,6 +59,10 @@ test('quick itinerary and emergency actions are accessible and offline-capable',
   assert.match(js,/session\.bundle\?\.data\?\.trip\?\.points\?\.hotel/);
   assert.match(js,/__vaultLocalStorage/);assert.match(js,/vault-open-assistant/);
   assert.match(js,/emergencyPdf/);
+});
+test('seven additional travel tools have accessible controls',()=>{
+  for(const id of ['travelExtrasOpen','travelExtrasDialog','taxiCardOpen','extrasMode','extrasChecklist','extrasPlanb','extrasSearch','extrasDiary','extrasTaxi','extrasShare','extrasDiarySave','extrasShareBackup'])assert.match(html,new RegExp(`id="${id}"`));
+  assert.match(worker,/vault-extras\.js/);
 });
 
 test('first-run file selection supports drag and drop without bypassing checks',()=>{
