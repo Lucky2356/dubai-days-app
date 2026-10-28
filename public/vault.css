@@ -1,0 +1,59 @@
+:root{font-family:Manrope,system-ui,-apple-system,Segoe UI,sans-serif;color:#16352b;background:#f5f8f4;font-synthesis:none}
+*{box-sizing:border-box}
+html{min-width:320px}
+body{margin:0;min-height:100vh}
+button,input{font:inherit}
+button{cursor:pointer}
+.vault-layout{min-height:100vh;max-width:1160px;margin:0 auto;padding:30px clamp(18px,5vw,64px) 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,425px);gap:26px 62px;align-content:center}
+.brand{grid-column:1/-1;display:flex;align-items:center;gap:11px}
+.brand-logo{display:grid;place-items:center;width:46px;height:46px;border-radius:15px;background:#185642;color:#fff;font:bold 26px Georgia,serif;position:relative}
+.brand-logo span{position:absolute;right:5px;top:0;font:12px sans-serif;color:#bce6bc}
+.brand>span:last-child{display:grid;gap:3px}
+.brand strong{font-size:20px;letter-spacing:-1.3px}
+.brand-period{color:#cd8a47}
+.brand small{font-size:9px;font-weight:800;letter-spacing:1.7px;color:#7c9186}
+.welcome{padding:58px 0 20px;align-self:center}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;color:#458169}
+.green-dot{display:inline-block;width:8px;height:8px;margin-right:7px;border-radius:50%;background:#2aa579;box-shadow:0 0 0 4px #e4f2e5}
+h1{font:600 clamp(43px,5vw,68px)/1.06 Georgia,serif;letter-spacing:-2.4px;margin:25px 0 19px}
+h1 em{font-weight:normal;color:#448a6c}
+.lede{font-size:15px;line-height:1.9;color:#63776c;max-width:510px}
+.trust{display:flex;flex-wrap:wrap;gap:10px;margin-top:34px}
+.trust span{border:1px solid #dfebe0;background:#fff;border-radius:9px;padding:9px 11px;font-size:11px;font-weight:800;color:#4c7461}
+.vault-card{align-self:center;background:#fff;border:1px solid #e4ece5;border-radius:22px;padding:clamp(20px,3vw,35px);box-shadow:0 18px 55px #315c4712}
+.card-header{display:flex;gap:13px;align-items:center}
+.lock-icon{display:grid;place-items:center;width:45px;height:45px;flex:none;background:#e9f4ed;border-radius:13px;color:#227254;font-size:25px}
+.card-header small{color:#7b9986;letter-spacing:1.3px;font-size:9px;font-weight:800}
+h2{font-size:20px;letter-spacing:-.7px;margin:4px 0}
+.vault-card>p{font-size:12px;line-height:1.75;color:#698074;margin:24px 0}
+form{display:grid;gap:10px}
+form[hidden]{display:none}
+label{font-size:12px;font-weight:800;color:#355c48;margin-top:3px}
+input{width:100%;min-width:0;min-height:47px;border:1px solid #c9dbce;border-radius:10px;background:#fafdfa;padding:11px 13px;color:#153c2d;font-size:16px;outline:none}
+input:focus-visible{border-color:#2a7758;box-shadow:0 0 0 3px #dbeee0}
+input[type=file]{font-size:12px;padding:10px}
+.password-field{position:relative}
+.password-field input{padding-right:51px}
+.password-field button{position:absolute;right:4px;top:4px;width:40px;height:39px;border:0;border-radius:8px;background:transparent;color:#5f816f}
+.primary-button{background:#165941;color:#fff;border:0;border-radius:11px;min-height:51px;margin-top:12px;padding:12px;font-weight:800;font-size:13px}
+.primary-button:hover{background:#0b4634}
+.primary-button:disabled{background:#89b29e;cursor:wait}
+.status{min-height:16px;font-size:12px;color:#9d4937!important;margin:12px 0!important}
+.status.ok{color:#277451!important}
+.foot-actions{border-top:1px solid #e8efea;padding-top:13px;margin-top:8px}
+.foot-actions button{border:0;background:transparent;padding:6px 0;color:#267659;font-size:12px;font-weight:750}
+.info{grid-column:1/-1;border-left:3px solid #adcbb4;padding:3px 15px;max-width:840px}
+.info strong{font-size:12px}
+.info p{font-size:11px;color:#678274;line-height:1.7;margin:5px 0}
+.vault-layout footer{grid-column:1/-1;font-size:10px;color:#9baea2}
+.running{height:100dvh;display:flex;flex-direction:column;background:#f8f9f4}
+.running[hidden]{display:none}
+.running-header{height:45px;padding:5px clamp(12px,3vw,35px);display:flex;align-items:center;justify-content:space-between;gap:15px;background:#174c3c;color:white;flex:none}
+.running-header>span{display:flex;align-items:center;gap:12px}
+.running-header strong{font-size:13px}
+.running-header small{font-size:10px;color:#c1d9cc}
+.running-header button{border:1px solid #a2c4af;border-radius:7px;padding:7px 10px;background:#fff;color:#1a503b;font-weight:800;font-size:11px}
+#privateFrame{display:block;border:0;width:100%;flex:1;min-height:0;background:#fff}
+@media(max-width:820px){.vault-layout{max-width:500px;padding:22px 20px;grid-template-columns:minmax(0,1fr);gap:20px}.brand,.info,.vault-layout footer{grid-column:1}.welcome{padding:28px 0 2px}.welcome h1{font-size:48px;margin:16px 0}.lede{font-size:13px;line-height:1.7}.trust{margin-top:19px}.vault-card{padding:22px}.running-header small{display:none}}
+@media(max-width:360px){.vault-layout{padding:16px 12px}.welcome h1{font-size:41px}.trust span{font-size:10px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
