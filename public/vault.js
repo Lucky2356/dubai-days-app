@@ -6,7 +6,7 @@ const PASSWORD_MIN=12;
 const ITERATIONS=310000;
 const $=id=>document.getElementById(id);
 let encryptedRecord=null,session=null,sessionKey=null,sessionToken=null;
-let persistQueue=Promise.resolve(),persistTimer=null;
+let persistQueue=Promise.resolve(),persistQueued=false,lastPersistError=null;
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 
 function openDB(){return new Promise((resolve,reject)=>{
@@ -75,7 +75,9 @@ async function clearLegacy(legacyStorage,legacyTickets){
   }catch{status('Некоторые старые незашифрованные вложения не удалось удалить. Проверьте данные браузера.')}
   try{
     const names=await caches.keys();
-    await Promise.all(names.filter(name=>name.startsWith('dubai-days-')&&name!=='dubai-days-private-shell-v1').map(name=>caches.delete(name)));
+    // Keep every version of the protected shell. The service worker retires
+    // outdated shell caches after its replacement is installed.
+    await Promise.all(names.filter(name=>name.startsWith('dubai-days-')&&!name.startsWith('dubai-days-private-shell-')).map(name=>caches.delete(name)));
   }catch{}
   try{
     const currentScript=new URL('./sw.js',location.href).href;
@@ -84,26 +86,38 @@ async function clearLegacy(legacyStorage,legacyTickets){
   }catch{}
 }
 
+function showSaveWarning(error){
+  $('running').dataset.saveError=error?'true':'false';
+  $('saveWarning').hidden=!error;
+}
 function schedulePersist(){
-  clearTimeout(persistTimer);
-  persistTimer=setTimeout(()=>{persistTimer=null;enqueuePersist()},150);
+  if(!session||!sessionKey||!encryptedRecord||persistQueued)return;
+  persistQueued=true;
+  // A microtask starts the encrypted write immediately after the current
+  // click/input handler, instead of leaving a 150 ms unsaved window.
+  queueMicrotask(()=>{if(!persistQueued)return;persistQueued=false;enqueuePersist()});
 }
 function enqueuePersist(){
   if(!session||!sessionKey||!encryptedRecord)return persistQueue;
-  const copy=session,secret=sessionKey,salt=unbase64(encryptedRecord.salt);
+  const snapshot={bundle:session.bundle,storage:{...session.storage},tickets:{...(session.tickets||{})},maptilerKey:session.maptilerKey||''};
+  const secret=sessionKey,salt=unbase64(encryptedRecord.salt);
   persistQueue=persistQueue.then(async()=>{
-    const update=await encryptValue(copy,secret,salt);
-    await database('put',update);encryptedRecord=update;
-  }).catch(error=>{console.error('Encrypted save failed',error);$('running').dataset.saveError='true'});
+    const update=await encryptValue(snapshot,secret,salt);
+    await database('put',update);encryptedRecord=update;lastPersistError=null;showSaveWarning(null);
+  }).catch(error=>{lastPersistError=error;console.error('Encrypted save failed',error);showSaveWarning(error)});
   return persistQueue;
 }
-async function flush(){if(persistTimer){clearTimeout(persistTimer);persistTimer=null;enqueuePersist()}await persistQueue}
+async function flush(){
+  if(persistQueued){persistQueued=false;enqueuePersist()}
+  await persistQueue;
+  if(lastPersistError)throw lastPersistError;
+}
 const jsLiteral=value=>JSON.stringify(value).replaceAll('<','\\u003c').replaceAll('\u2028','\\u2028').replaceAll('\u2029','\\u2029');
 const safeInline=(source,tag)=>source.replace(new RegExp('</'+tag,'gi'),'<\\/'+tag);
 const asScript=source=>'<script>'+safeInline(source,'script')+'<\/script>';
 const unpackExports=source=>source.replace(/^export\s+/gm,'');
 
-function buildPrivateHTML(bundle,storage,token){
+function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
   let html=bundle.html;
   const hero='data:image/webp;base64,'+bundle.assets.hero;
   const styles=Object.values(bundle.styles).map(css=>css.replace(/url\(['"]?\.\/assets\/dubai-hero\.webp['"]?\)/g,'url("'+hero+'")')).join('\n');
@@ -113,7 +127,7 @@ function buildPrivateHTML(bundle,storage,token){
   const rootUrl=location.href.replace(/(?:vault-shell\/)?(?:index\.html)?(?:[?#].*)?$/,'');
   const head='<base href="'+rootUrl+'"><style>'+safeInline(styles,'style')+'</style>';
   html=html.replace('</head>',head+'</head>');
-  const prelude=`\nwindow.__vaultData=${jsLiteral(bundle.data)};\nwindow.__vaultStorageData=${jsLiteral(storage)};\nwindow.__vaultToken=${jsLiteral(token)};\nwindow.__vaultLocalStorage={getItem(key){return Object.prototype.hasOwnProperty.call(window.__vaultStorageData,key)?window.__vaultStorageData[key]:null},setItem(key,value){window.__vaultStorageData[key]=String(value);parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:String(value)},'*')},removeItem(key){delete window.__vaultStorageData[key];parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:null},'*')}};\nconst oldFetch=window.fetch.bind(window);window.fetch=(resource,options)=>{const url=typeof resource==='string'?resource:'';if(/(?:^|\\/)data\\/(?:trip|geometry)\\.json(?:[?#]|$)/.test(url)){const key=url.includes('trip.json')?'trip':'geometry';return Promise.resolve(new Response(JSON.stringify(window.__vaultData[key]),{status:200,headers:{'Content-Type':'application/json'}}))}return oldFetch(resource,options)};\nlet vaultSequence=0;const pendingTickets=new Map();window.addEventListener('message',event=>{const m=event.data;if(m?.type!=='vault-ticket-response'||m.token!==window.__vaultToken)return;const request=pendingTickets.get(m.requestId);if(!request)return;pendingTickets.delete(m.requestId);m.error?request.reject(Error(m.error)):request.resolve(m.result)});window.__vaultTicketOp=(kind,id,record)=>new Promise((resolve,reject)=>{const requestId=++vaultSequence;pendingTickets.set(requestId,{resolve,reject});parent.postMessage({type:'vault-ticket',token:window.__vaultToken,requestId,kind,id,record},'*')});\n`;
+  const prelude=`\nwindow.DUBAI_MAP_CONFIG=${jsLiteral({maptilerKey})};\nwindow.__vaultData=${jsLiteral(bundle.data)};\nwindow.__vaultStorageData=${jsLiteral(storage)};\nwindow.__vaultToken=${jsLiteral(token)};\nwindow.__vaultLocalStorage={getItem(key){return Object.prototype.hasOwnProperty.call(window.__vaultStorageData,key)?window.__vaultStorageData[key]:null},setItem(key,value){window.__vaultStorageData[key]=String(value);parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:String(value)},'*')},removeItem(key){delete window.__vaultStorageData[key];parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:null},'*')}};\nconst oldFetch=window.fetch.bind(window);window.fetch=(resource,options)=>{const url=typeof resource==='string'?resource:'';if(/(?:^|\\/)data\\/(?:trip|geometry)\\.json(?:[?#]|$)/.test(url)){const key=url.includes('trip.json')?'trip':'geometry';return Promise.resolve(new Response(JSON.stringify(window.__vaultData[key]),{status:200,headers:{'Content-Type':'application/json'}}))}return oldFetch(resource,options)};\nlet vaultSequence=0;const pendingTickets=new Map();window.addEventListener('message',event=>{const m=event.data;if(m?.type!=='vault-ticket-response'||m.token!==window.__vaultToken)return;const request=pendingTickets.get(m.requestId);if(!request)return;pendingTickets.delete(m.requestId);m.error?request.reject(Error(m.error)):request.resolve(m.result)});window.__vaultTicketOp=(kind,id,record)=>new Promise((resolve,reject)=>{const requestId=++vaultSequence;pendingTickets.set(requestId,{resolve,reject});parent.postMessage({type:'vault-ticket',token:window.__vaultToken,requestId,kind,id,record},'*')});\n`;
   const content=unpackExports(bundle.scripts['content.js']);
   const companion=unpackExports(bundle.scripts['companion.js']);
   const logic=unpackExports(bundle.scripts['travel-logic.js']);
@@ -134,7 +148,7 @@ function buildPrivateHTML(bundle,storage,token){
 }
 
 async function lock(){
-  await flush();
+  try{await flush()}catch{return}
   $('privateFrame').srcdoc='';$('running').hidden=true;$('vaultGate').hidden=false;
   session=null;sessionKey=null;sessionToken=null;
   $('unlockPassword').value='';$('importPassword').value='';$('importConfirm').value='';$('importFile').value='';
@@ -142,7 +156,7 @@ async function lock(){
 }
 function unlockFrame(){
   sessionToken=base64(crypto.getRandomValues(new Uint8Array(18)));
-  const html=buildPrivateHTML(session.bundle,session.storage,sessionToken);
+  const html=buildPrivateHTML(session.bundle,session.storage,sessionToken,session.maptilerKey||'');
   $('privateFrame').srcdoc=html;
   $('vaultGate').hidden=true;$('running').hidden=false;
 }
@@ -163,6 +177,7 @@ async function handleImport(event){
   if(encryptedRecord&&!confirm('Заменить сохранённый на этом устройстве маршрут? Сделайте копию текущих данных перед заменой.'))return;
   button.disabled=true;status('Проверяем и шифруем ваш маршрут…');
   try{
+    await flush();
     const bundle=validateBundle(JSON.parse(await file.text()));
     const legacyStorage=encryptedRecord?{}:findLegacyStorage();
     const legacyTickets=encryptedRecord?{}:await findLegacyTickets();
@@ -193,8 +208,8 @@ async function handleVaultMessage(event){
     if(m.kind==='put'){
       if(!m.record?.blob||typeof m.record.blob.arrayBuffer!=='function'||m.record.blob.size>6*1024*1024||!m.id)throw Error('Некорректное вложение');
       list[m.id]={id:m.id,name:String(m.record.name||'Билет').slice(0,120),type:m.record.type,body:base64(new Uint8Array(await m.record.blob.arrayBuffer())),savedAt:m.record.savedAt};
-      schedulePersist();
-    }else if(m.kind==='delete'){delete list[m.id];schedulePersist()}
+      schedulePersist();await flush();
+    }else if(m.kind==='delete'){delete list[m.id];schedulePersist();await flush()}
     else if(m.kind==='get'){const item=list[m.id];result=item?{...item,blob:new Blob([unbase64(item.body)],{type:item.type})}:undefined}
     else if(m.kind==='all'){result=Object.values(list).map(item=>({...item,blob:new Blob([unbase64(item.body)],{type:item.type})}))}
     else throw Error('Неизвестная операция');
@@ -203,14 +218,36 @@ async function handleVaultMessage(event){
 }
 
 window.addEventListener('message',handleVaultMessage);
-window.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flush()});
-window.addEventListener('pagehide',()=>{flush()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void flush().catch(()=>{})});
+window.addEventListener('pagehide',()=>{void flush().catch(()=>{})});
 document.querySelectorAll('[data-toggle-password]').forEach(button=>button.addEventListener('click',()=>{const input=$(button.dataset.togglePassword);input.type=input.type==='password'?'text':'password';button.setAttribute('aria-label',input.type==='password'?'Показать пароль':'Скрыть пароль')}));
 $('unlockForm').addEventListener('submit',handleUnlock);
 $('importForm').addEventListener('submit',handleImport);
 $('switchToImport').addEventListener('click',()=>formMode('import'));
 $('switchToUnlock').addEventListener('click',()=>formMode('unlock'));
 $('lockVault').addEventListener('click',lock);
+// The optional MapTiler browser key stays in the encrypted local session.
+$('mapSettings').addEventListener('click',()=>{
+  if(!session)return;
+  $('maptilerKey').value=session.maptilerKey||'';
+  $('mapSettingsDialog').showModal();
+});
+$('cancelMapSettings').addEventListener('click',()=>$('mapSettingsDialog').close());
+$('mapSettingsForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!session)return;
+  const button=$('saveMapSettings'),previous=session.maptilerKey||'';
+  button.disabled=true;
+  session.maptilerKey=$('maptilerKey').value.trim();
+  try{
+    schedulePersist();await flush();
+    $('mapSettingsDialog').close();unlockFrame();
+  }catch{
+    session.maptilerKey=previous;
+    $('mapSettingsDialog').close();
+  }finally{button.disabled=false}
+});
+$('retrySave').addEventListener('click',()=>{schedulePersist();flush().catch(()=>{})});
 try{
   if(!crypto?.subtle||!window.indexedDB)throw Error('Для защиты нужен современный браузер и HTTPS.');
   encryptedRecord=await database('get');

@@ -54,7 +54,20 @@ input[type=file]{font-size:12px;padding:10px}
 .running-header strong{font-size:13px}
 .running-header small{font-size:10px;color:#c1d9cc}
 .running-header button{border:1px solid #a2c4af;border-radius:7px;padding:7px 10px;background:#fff;color:#1a503b;font-weight:800;font-size:11px}
+.running-actions{display:flex;align-items:center;gap:6px;flex:none}
+.save-warning{padding:9px 16px;background:#fff2e4;color:#883d27;font-size:12px;line-height:1.5}
+.save-warning[hidden]{display:none}
+.save-warning button{border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;padding:3px 7px;margin-left:8px;font-weight:800}
+.map-dialog{width:min(420px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #dcebe1;border-radius:18px;padding:24px;color:#194733;box-shadow:0 20px 80px #182d2560}
+.map-dialog::backdrop{background:#142b2199}
+.map-dialog h2{font-size:22px;margin:0 0 12px}
+.map-dialog p{font-size:13px;line-height:1.65;color:#657b70;margin:0 0 15px}
+.map-dialog .map-dialog-note{font-size:11px;margin:2px 0}
+.map-dialog-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.map-dialog-actions button{flex:1;min-height:43px;border:1px solid #bcd0c3;border-radius:9px;background:#fff;color:#185642;font-weight:800;font-size:12px;padding:9px}
+.map-dialog-actions .primary-button{background:#165941;color:#fff;margin:0}
 #privateFrame{display:block;border:0;width:100%;flex:1;min-height:0;background:#fff}
 @media(max-width:820px){.vault-layout{max-width:500px;padding:22px 20px;grid-template-columns:minmax(0,1fr);gap:20px}.brand,.info,.vault-layout footer{grid-column:1}.welcome{padding:28px 0 2px}.welcome h1{font-size:48px;margin:16px 0}.lede{font-size:13px;line-height:1.7}.trust{margin-top:19px}.vault-card{padding:22px}.running-header small{display:none}}
 @media(max-width:360px){.vault-layout{padding:16px 12px}.welcome h1{font-size:41px}.trust span{font-size:10px}}
+@media(max-width:370px){.running-header{padding:5px 8px;gap:7px}.running-header strong{font-size:12px}.running-header button{padding:7px 6px;font-size:10px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
