@@ -40,17 +40,40 @@ async function decryptValue(record,key){
 }
 function status(message,ok=false){const node=$('vaultStatus');node.textContent=message;node.classList.toggle('ok',ok)}
 function formMode(mode){
-  $('unlockForm').hidden=mode!=='unlock';$('importForm').hidden=mode!=='import';
-  $('switchToImport').hidden=mode!=='unlock';$('switchToUnlock').hidden=mode!=='import'||!encryptedRecord;
-  $('accessTitle').textContent=mode==='unlock'?'Открыть путеводитель':'Загрузить личный маршрут';
-  $('vaultExplainer').textContent=mode==='unlock'?'Введите свой пароль. Файл маршрута уже зашифрован на этом устройстве.':'Выберите личный JSON-файл путеводителя и задайте пароль. Только зашифрованная копия останется в браузере.';
+  const updating=!!encryptedRecord;
+  $('unlockForm').hidden=mode!=='unlock';$('importForm').hidden=mode!=='import';$('restoreForm').hidden=mode!=='restore';
+  $('importNewPasswords').hidden=updating;$('importExistingPassword').hidden=!updating;
+  $('importPassword').required=!updating;$('importConfirm').required=!updating;$('updatePassword').required=updating;
+  $('switchToImport').hidden=mode==='import';$('switchToRestore').hidden=mode==='restore';
+  $('switchToUnlock').hidden=mode==='unlock'||!encryptedRecord;
+  const titles={unlock:'Открыть путеводитель',import:updating?'Обновить путеводитель':'Загрузить личный маршрут',restore:'Восстановить из копии'};
+  $('accessTitle').textContent=titles[mode]||titles.unlock;
+  const explainers={
+    unlock:'Введите свой пароль. Маршрут и все изменения уже зашифрованы на этом устройстве.',
+    import:updating?'Выберите обновлённый JSON и введите текущий пароль. Отметки, расходы и сохранённые билеты останутся на месте.':'Выберите личный JSON-файл и задайте пароль. Только зашифрованная копия останется в браузере.',
+    restore:'Выберите защищённую резервную копию и введите её пароль. Восстановятся маршрут, отметки, расходы и билеты.'
+  };
+  $('vaultExplainer').textContent=explainers[mode]||explainers.unlock;
+  $('importButton').textContent=updating?'Обновить без потери данных →':'Зашифровать и открыть →';
   status('');
 }
 function validateBundle(data){
-  if(data?.format!==FORMAT||data?.version!==48||!data.html?.includes('id="appScreen"')||!Array.isArray(data.data?.trip?.days)||data.data.trip.days.length!==8)throw Error('Это не подходящий файл личного путеводителя.');
+  if(data?.format!==FORMAT||!Number.isInteger(data.version)||data.version<48||!data.html?.includes('id="appScreen"')||!Array.isArray(data.data?.trip?.days)||data.data.trip.days.length!==8)throw Error('Это не подходящий файл личного путеводителя.');
   const expected=['content.js','companion.js','travel-logic.js','app.js','route-focus.js','offline-atlas.js','travel-tools.js'];
-  if(expected.some(name=>typeof data.scripts?.[name]!=='string')||typeof data.styles?.['styles.css']!=='string')throw Error('В файле отсутствуют компоненты путеводителя.');
+  if(expected.some(name=>typeof data.scripts?.[name]!=='string')||typeof data.styles?.['styles.css']!=='string'||typeof data.assets?.hero!=='string'||typeof data.assets?.emergencyPdf!=='string')throw Error('В файле отсутствуют компоненты путеводителя.');
   return data;
+}
+function sameStages(previous,next){
+  const a=previous.data.trip.days,b=next.data.trip.days;
+  return a.length===b.length&&a.every((day,i)=>day.date===b[i]?.date&&day.legs.length===b[i]?.legs.length&&day.legs.every((leg,j)=>{
+    const other=b[i].legs[j];return leg.mode===other.mode&&leg.from===other.from&&leg.to===other.to;
+  }));
+}
+function validateProtectedRecord(value){
+  if(value?.format!=='dubai-days-locked-v1'||value.iterations!==ITERATIONS||
+     ![value.salt,value.iv,value.ciphertext].every(v=>typeof v==='string'&&v.length>12&&/^[A-Za-z0-9+/=]+$/.test(v)))
+    throw Error('Это не зашифрованная копия Dubai Days.');
+  return value;
 }
 const privateKeyName=key=>/^dubai-days-(?:personal|companion|hub|manual-checks|home-mode|weather)-v1$/.test(key);
 function findLegacyStorage(){
@@ -151,7 +174,7 @@ async function lock(){
   try{await flush()}catch{return}
   $('privateFrame').srcdoc='';$('running').hidden=true;$('vaultGate').hidden=false;
   session=null;sessionKey=null;sessionToken=null;
-  $('unlockPassword').value='';$('importPassword').value='';$('importConfirm').value='';$('importFile').value='';
+  $('unlockPassword').value='';$('importPassword').value='';$('importConfirm').value='';$('updatePassword').value='';$('importFile').value='';
   formMode(encryptedRecord?'unlock':'import');
 }
 function unlockFrame(){
@@ -171,26 +194,75 @@ async function handleUnlock(event){
   finally{button.disabled=false}
 }
 async function handleImport(event){
-  event.preventDefault();const pass=$('importPassword').value,confirmPass=$('importConfirm').value,button=$('importButton'),file=$('importFile').files?.[0];
+  event.preventDefault();
+  const updating=!!encryptedRecord,pass=$(updating?'updatePassword':'importPassword').value,confirmPass=$('importConfirm').value;
+  const button=$('importButton'),file=$('importFile').files?.[0];
   if(!file||file.size>8*1024*1024){status('Выберите JSON-файл размером не более 8 МБ.');return}
-  if(pass.length<PASSWORD_MIN||pass!==confirmPass){status('Пароли должны совпадать и содержать не менее 12 символов.');return}
-  if(encryptedRecord&&!confirm('Заменить сохранённый на этом устройстве маршрут? Сделайте копию текущих данных перед заменой.'))return;
-  button.disabled=true;status('Проверяем и шифруем ваш маршрут…');
+  if(pass.length<PASSWORD_MIN||!updating&&pass!==confirmPass){status(updating?'Введите действующий пароль от путеводителя.':'Пароли должны совпадать и содержать не менее 12 символов.');return}
+  button.disabled=true;status(updating?'Проверяем обновление и сохраняем ваши данные…':'Проверяем и шифруем ваш маршрут…');
   try{
     await flush();
     const bundle=validateBundle(JSON.parse(await file.text()));
-    const legacyStorage=encryptedRecord?{}:findLegacyStorage();
-    const legacyTickets=encryptedRecord?{}:await findLegacyTickets();
-    const salt=crypto.getRandomValues(new Uint8Array(16));
+    const salt=updating?unbase64(encryptedRecord.salt):crypto.getRandomValues(new Uint8Array(16));
     const key=await keyFromPassword(pass,salt);
-    const nextSession={bundle,storage:legacyStorage,tickets:legacyTickets};
+    let nextSession,legacyStorage={},legacyTickets={};
+    if(updating){
+      let oldSession;
+      try{oldSession=await decryptValue(encryptedRecord,key)}
+      catch{throw Error('Текущий пароль неверный. Сохранённый путеводитель не изменён.')}
+      validateBundle(oldSession.bundle);
+      if(!sameStages(oldSession.bundle,bundle))
+        throw Error('В JSON изменился состав или порядок этапов. Обновление отменено, чтобы не потерять отметки. Сначала скачайте защищённую копию.');
+      nextSession={...oldSession,bundle};
+    }else{
+      legacyStorage=findLegacyStorage();legacyTickets=await findLegacyTickets();
+      nextSession={bundle,storage:legacyStorage,tickets:legacyTickets};
+    }
+    // Check that the generated iframe is compatible before replacing the
+    // only encrypted copy of the traveller's current itinerary.
+    buildPrivateHTML(bundle,nextSession.storage,'validation-token',nextSession.maptilerKey||'');
     const record=await encryptValue(nextSession,key,salt);
     await database('put',record);
     encryptedRecord=record;session=nextSession;sessionKey=key;
-    await clearLegacy(legacyStorage,legacyTickets);
+    if(!updating)await clearLegacy(legacyStorage,legacyTickets);
+    $('updatePassword').value='';
     unlockFrame();
   }catch(error){status(error?.message||'Не удалось импортировать файл. Данные не изменены.')}
   finally{button.disabled=false}
+}
+
+async function handleRestore(event){
+  event.preventDefault();
+  const file=$('restoreFile').files?.[0],pass=$('restorePassword').value,button=$('restoreButton');
+  if(!file||file.size>64*1024*1024||pass.length<PASSWORD_MIN){status('Выберите защищённую копию не более 64 МБ и введите её пароль.');return}
+  button.disabled=true;status('Проверяем резервную копию…');
+  try{
+    const record=validateProtectedRecord(JSON.parse(await file.text()));
+    const key=await keyFromPassword(pass,unbase64(record.salt));
+    let restored;
+    try{restored=await decryptValue(record,key)}
+    catch{throw Error('Неверный пароль или повреждённая резервная копия.')}
+    validateBundle(restored.bundle);
+    buildPrivateHTML(restored.bundle,restored.storage,'validation-token',restored.maptilerKey||'');
+    if(encryptedRecord&&!confirm('Восстановить копию вместо текущего путеводителя на этом устройстве? Текущие данные будут заменены.')){status('Восстановление отменено.');return}
+    await flush();await database('put',record);
+    encryptedRecord=record;session=restored;sessionKey=key;
+    $('restorePassword').value='';$('restoreFile').value='';
+    unlockFrame();
+  }catch(error){status(error?.message||'Восстановление не удалось. Текущие данные не изменены.')}
+  finally{button.disabled=false}
+}
+
+async function exportProtectedBackup(){
+  if(!session)return;
+  try{
+    await flush();
+    const blob=new Blob([JSON.stringify({...encryptedRecord,exportedAt:new Date().toISOString()})],{type:'application/json'});
+    const url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download='dubai-days-protected-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }catch{alert('Не удалось скачать резервную копию. Проверьте, разрешены ли загрузки и доступны ли данные браузера.')}
 }
 
 async function handleVaultMessage(event){
@@ -223,7 +295,9 @@ window.addEventListener('pagehide',()=>{void flush().catch(()=>{})});
 document.querySelectorAll('[data-toggle-password]').forEach(button=>button.addEventListener('click',()=>{const input=$(button.dataset.togglePassword);input.type=input.type==='password'?'text':'password';button.setAttribute('aria-label',input.type==='password'?'Показать пароль':'Скрыть пароль')}));
 $('unlockForm').addEventListener('submit',handleUnlock);
 $('importForm').addEventListener('submit',handleImport);
+$('restoreForm').addEventListener('submit',handleRestore);
 $('switchToImport').addEventListener('click',()=>formMode('import'));
+$('switchToRestore').addEventListener('click',()=>formMode('restore'));
 $('switchToUnlock').addEventListener('click',()=>formMode('unlock'));
 $('lockVault').addEventListener('click',lock);
 // The optional MapTiler browser key stays in the encrypted local session.
@@ -233,6 +307,12 @@ $('mapSettings').addEventListener('click',()=>{
   $('mapSettingsDialog').showModal();
 });
 $('cancelMapSettings').addEventListener('click',()=>$('mapSettingsDialog').close());
+$('exportVault').addEventListener('click',exportProtectedBackup);
+$('updateVault').addEventListener('click',async()=>{
+  $('mapSettingsDialog').close();
+  await lock();
+  if($('running').hidden)formMode('import');
+});
 $('mapSettingsForm').addEventListener('submit',async event=>{
   event.preventDefault();
   if(!session)return;
