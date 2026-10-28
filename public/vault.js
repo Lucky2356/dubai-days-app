@@ -1,5 +1,5 @@
-import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=17';
-import {initPwaUpdates} from './vault-pwa.js?v=17';
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=18';
+import {initPwaUpdates} from './vault-pwa.js?v=18';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -434,7 +434,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v17')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v18')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){

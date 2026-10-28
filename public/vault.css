@@ -12,21 +12,21 @@ button{cursor:pointer}
 .brand>span:last-child{display:grid;gap:3px}
 .brand strong{font-size:20px;letter-spacing:-1.3px}
 .brand-period{color:#cd8a47}
-.brand small{font-size:9px;font-weight:800;letter-spacing:1.7px;color:#7c9186}
+.brand small{font-size:10px;font-weight:800;letter-spacing:1.5px;color:#526c5e}
 .welcome{padding:58px 0 20px;align-self:center}
-.eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;color:#458169}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;color:#326b50}
 .green-dot{display:inline-block;width:8px;height:8px;margin-right:7px;border-radius:50%;background:#2aa579;box-shadow:0 0 0 4px #e4f2e5}
 h1{font:600 clamp(43px,5vw,68px)/1.06 Georgia,serif;letter-spacing:-2.4px;margin:25px 0 19px}
-h1 em{font-weight:normal;color:#448a6c}
-.lede{font-size:15px;line-height:1.9;color:#63776c;max-width:510px}
+h1 em{font-weight:normal;color:#30694e}
+.lede{font-size:15px;line-height:1.9;color:#536b5d;max-width:510px}
 .trust{display:flex;flex-wrap:wrap;gap:10px;margin-top:34px}
 .trust span{border:1px solid #dfebe0;background:#fff;border-radius:9px;padding:9px 11px;font-size:11px;font-weight:800;color:#4c7461}
 .vault-card{align-self:center;background:#fff;border:1px solid #e4ece5;border-radius:22px;padding:clamp(20px,3vw,35px);box-shadow:0 18px 55px #315c4712}
 .card-header{display:flex;gap:13px;align-items:center}
 .lock-icon{display:grid;place-items:center;width:45px;height:45px;flex:none;background:#e9f4ed;border-radius:13px;color:#227254;font-size:25px}
-.card-header small{color:#7b9986;letter-spacing:1.3px;font-size:9px;font-weight:800}
+.card-header small{color:#526b5a;letter-spacing:1.3px;font-size:10px;font-weight:800}
 h2{font-size:20px;letter-spacing:-.7px;margin:4px 0}
-.vault-card>p{font-size:12px;line-height:1.75;color:#698074;margin:24px 0}
+.vault-card>p{font-size:12px;line-height:1.75;color:#506d5d;margin:24px 0}
 form{display:grid;gap:10px}
 form[hidden]{display:none}
 .password-set{display:grid;gap:10px}
@@ -48,8 +48,8 @@ input[type=file]{font-size:12px;padding:10px}
 .foot-actions button{border:0;background:transparent;padding:6px 0;color:#267659;font-size:12px;font-weight:750}
 .info{grid-column:1/-1;border-left:3px solid #adcbb4;padding:3px 15px;max-width:840px}
 .info strong{font-size:12px}
-.info p{font-size:11px;color:#678274;line-height:1.7;margin:5px 0}
-.vault-layout footer{grid-column:1/-1;font-size:10px;color:#9baea2}
+.info p{font-size:11px;color:#4d6859;line-height:1.7;margin:5px 0}
+.vault-layout footer{grid-column:1/-1;font-size:11px;color:#526e5e}
 .running{height:100dvh;display:flex;flex-direction:column;background:#f8f9f4}
 .running[hidden]{display:none}
 .running-header{height:51px;padding:5px clamp(12px,3vw,35px);display:flex;align-items:center;justify-content:space-between;gap:12px;background:#174c3c;color:white;flex:none}
@@ -74,7 +74,7 @@ input[type=file]{font-size:12px;padding:10px}
 .vault-dialog-header h2{margin:0}
 .vault-dialog-header button{flex:none;width:42px;height:42px;border:1px solid #d5e6d9;border-radius:10px;background:#f5faf6;color:#24583f;font-size:25px;line-height:1}
 .map-dialog h3{font-size:15px;margin:18px 0 9px}
-.map-dialog p{font-size:13px;line-height:1.65;color:#657b70;margin:0 0 15px}
+.map-dialog p{font-size:13px;line-height:1.65;color:#506b5c;margin:0 0 15px}
 .map-dialog .map-dialog-note{font-size:11px;margin:2px 0}
 .map-dialog-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .map-dialog-actions button{flex:1;min-height:43px;border:1px solid #bcd0c3;border-radius:9px;background:#fff;color:#185642;font-weight:800;font-size:12px;padding:9px}
@@ -118,7 +118,7 @@ input[type=file]{font-size:12px;padding:10px}
 .file-picker-button{margin:0;display:flex;align-items:center;justify-content:center;min-height:47px;border:1px solid #b8d4c1;border-radius:10px;background:#f1f9f2;color:#185c42;font-size:14px;font-weight:800;cursor:pointer}
 .file-picker:hover .file-picker-button{background:#e5f3e7}
 .file-picker:focus-within .file-picker-button{outline:3px solid #a9d5b9;outline-offset:2px}
-.file-picker-name{font-size:12px;line-height:1.5;color:#537360;overflow-wrap:anywhere}
+.file-picker-name{font-size:12px;line-height:1.5;color:#4c6b57;overflow-wrap:anywhere}
 .save-state{color:#c8e2d2!important;font-size:12px!important}
 .save-state[data-mode="pending"]{color:#f5dea8!important}
 .save-state[data-mode="error"]{color:#ffcebe!important}
@@ -176,7 +176,7 @@ input[type=file]{font-size:12px;padding:10px}
 .trust-file{display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.5;font-weight:600;color:#355c48;margin-top:6px}
 .trust-file input{appearance:auto;width:20px;min-width:20px;height:20px;min-height:20px;margin:1px 0 0;accent-color:#185642;flex-shrink:0}
 .file-picker-button{flex-wrap:wrap;gap:4px 9px;text-align:center;padding:9px 12px}
-.drop-hint{font-weight:500;font-size:12px;color:#567b67}
+.drop-hint{font-weight:500;font-size:12px;color:#476b56}
 .file-picker.drag-active .file-picker-button{background:#d9efe0;border:2px dashed #16724c}
 .password-guidance{font-size:12px!important;line-height:1.5;color:#547462;margin:1px 0 9px!important}
 .password-guidance[data-mode="warn"]{color:#a15a22}
