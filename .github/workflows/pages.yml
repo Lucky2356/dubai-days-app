@@ -43,6 +43,7 @@ jobs:
           node tests/ui-contract.test.mjs
           node tests/lifecycle.test.mjs
           node tests/bridge.test.mjs
+          node tests/render-pipeline.test.mjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
