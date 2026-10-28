@@ -8,10 +8,10 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=13">
+  <link rel="stylesheet" href="./vault.css?v=14">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="./vault.js?v=13"></script>
+  <script type="module" src="./vault.js?v=14"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -25,6 +25,11 @@
     <section class="vault-card" aria-labelledby="accessTitle">
       <div class="card-header"><span class="lock-icon" aria-hidden="true">♧</span><span><small id="cardKicker">ЛОКАЛЬНОЕ ХРАНИЛИЩЕ</small><h2 id="accessTitle">Открыть путеводитель</h2></span></div>
       <p id="vaultExplainer">Если вы уже загрузили маршрут на это устройство, введите пароль для расшифровки.</p>
+      <ol class="onboarding-steps" id="onboardingSteps" hidden>
+        <li><strong>Выберите файл</strong><span>Личный маршрут Dubai Days в формате JSON.</span></li>
+        <li><strong>Защитите данные</strong><span>Придумайте пароль — он останется только у вас.</span></li>
+        <li><strong>Сохраните копию</strong><span>После открытия скачайте защищённую копию в настройках.</span></li>
+      </ol>
       <form id="unlockForm" hidden>
         <label for="unlockPassword">Пароль</label>
         <div class="password-field"><input id="unlockPassword" type="password" autocomplete="current-password" required minlength="12" placeholder="Ваш пароль"><button type="button" data-toggle-password="unlockPassword" aria-label="Показать пароль">◉</button></div>
@@ -78,6 +83,16 @@
       <p class="vault-muted" id="vaultBackupStatus" role="status">Копия ещё не создавалась на этом устройстве.</p>
       <button type="button" id="exportVault">↓ Скачать защищённую копию</button>
       <button type="button" id="updateVault">↑ Обновить маршрут из JSON</button>
+      <details class="vault-verify">
+        <summary>Проверить скачанную резервную копию</summary>
+        <p>Выберите файл и укажите пароль от него. Проверка ничего не заменит и не отправит в интернет.</p>
+        <label for="verifyBackupFile">Файл защищённой копии</label>
+        <input id="verifyBackupFile" type="file" accept=".json,application/json">
+        <label for="verifyBackupPassword">Пароль от копии</label>
+        <input id="verifyBackupPassword" type="password" autocomplete="off" minlength="12">
+        <button type="button" id="verifyBackup">✓ Проверить файл</button>
+        <p id="verifyBackupResult" role="status" aria-live="polite"></p>
+      </details>
     </section>
     <section class="vault-backup vault-health" aria-label="Надёжность хранения и проверка поездки">
       <h3>Надёжность хранения</h3>

@@ -1,3 +1,5 @@
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=14';
+import {initPwaUpdates} from './vault-pwa.js?v=14';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -10,7 +12,6 @@ const MAX_RESTORE_BYTES=128*1024*1024; // Also accept older, larger backups.
 const $=id=>document.getElementById(id);
 let encryptedRecord=null,session=null,sessionKey=null,sessionToken=null;
 let persistQueue=Promise.resolve(),persistQueued=false,lastPersistError=null;
-const encoder=new TextEncoder(),decoder=new TextDecoder();
 
 function openDB(){return new Promise((resolve,reject)=>{
   const request=indexedDB.open(DB_NAME,1);
@@ -26,21 +27,6 @@ async function database(op,value){const db=await openDB();return new Promise((re
   tx.oncomplete=()=>{db.close();resolve(result)};
   tx.onerror=tx.onabort=()=>{db.close();reject(Error('Не удалось сохранить защищённые данные на устройстве.'))};
 })}
-const base64=bytes=>{let text='';for(let i=0;i<bytes.length;i+=16384)text+=String.fromCharCode(...bytes.subarray(i,i+16384));return btoa(text)};
-const unbase64=value=>Uint8Array.from(atob(value),ch=>ch.charCodeAt(0));
-async function keyFromPassword(password,salt){
-  const material=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:ITERATIONS,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
-}
-async function encryptValue(value,key,salt){
-  const iv=crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,encoder.encode(JSON.stringify(value)));
-  return {format:'dubai-days-locked-v1',iterations:ITERATIONS,salt:base64(salt),iv:base64(iv),ciphertext:base64(new Uint8Array(ciphertext))};
-}
-async function decryptValue(record,key){
-  const plaintext=await crypto.subtle.decrypt({name:'AES-GCM',iv:unbase64(record.iv)},key,unbase64(record.ciphertext));
-  return JSON.parse(decoder.decode(plaintext));
-}
 function status(message,ok=false){const node=$('vaultStatus');node.textContent=message;node.classList.toggle('ok',ok)}
 function setSaveState(message,mode='ok'){
   const node=$('saveState');if(!node)return;
@@ -61,6 +47,7 @@ function acknowledgeBackupPrompt(){
 }
 function formMode(mode){
   const updating=!!encryptedRecord;
+  $('onboardingSteps').hidden=mode!=='import'||updating;
   $('unlockForm').hidden=mode!=='unlock';$('importForm').hidden=mode!=='import';$('restoreForm').hidden=mode!=='restore';
   $('importNewPasswords').hidden=updating;$('importExistingPassword').hidden=!updating;
   $('importPassword').required=!updating;$('importConfirm').required=!updating;$('updatePassword').required=updating;
@@ -220,30 +207,6 @@ async function flush(){
   if(persistQueued){persistQueued=false;enqueuePersist()}
   await persistQueue;
   if(lastPersistError)throw lastPersistError;
-}
-let updateRequested=false;
-async function safeUpdate(){
-  const button=$('applyUpdate');button.disabled=true;$('updateText').textContent='Сохраняем данные перед обновлением…';
-  try{
-    await flush();
-    const registration=await navigator.serviceWorker.getRegistration();
-    if(!registration?.waiting)throw Error('Обновление пока не готово. Попробуйте ещё раз.');
-    updateRequested=true;
-    $('updateText').textContent='Обновляем путеводитель…';
-    registration.waiting.postMessage({type:'APPLY_UPDATE'});
-  }catch(error){updateRequested=false;$('updateText').textContent='Обновление отменено: '+(error?.message||'ошибка сохранения');button.disabled=false}
-}
-function showUpdate(){if(updateRequested)return;$('updateNotice').hidden=false;$('updateText').textContent='Доступна новая версия путеводителя.'}
-function watchUpdate(registration){
-  if(registration.waiting&&navigator.serviceWorker.controller)showUpdate();
-  registration.addEventListener('updatefound',()=>{
-    const worker=registration.installing;
-    worker?.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)showUpdate()});
-  });
-}
-if('serviceWorker'in navigator){
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(updateRequested)location.reload()});
-  $('applyUpdate').addEventListener('click',safeUpdate);
 }
 const jsLiteral=value=>JSON.stringify(value).replaceAll('<','\\u003c').replaceAll('\u2028','\\u2028').replaceAll('\u2029','\\u2029');
 const safeInline=(source,tag)=>source.replace(new RegExp('</'+tag,'gi'),'<\\/'+tag);
@@ -431,6 +394,31 @@ async function exportProtectedBackup(){
   }catch{session.lastBackupAt=previousDate;schedulePersist();void flush().catch(()=>{});alert('Не удалось скачать резервную копию. Проверьте, разрешены ли загрузки и доступны ли данные браузера.')}
 }
 
+async function inspectProtectedBackup(record,password){
+  const safe=validateProtectedRecord(record);
+  const key=await keyFromPassword(password,unbase64(safe.salt));
+  const data=await decryptValue(safe,key);
+  validateBundle(data?.bundle);
+  if(!data.storage||typeof data.storage!=='object'||Array.isArray(data.storage)||
+     !data.tickets||typeof data.tickets!=='object'||Array.isArray(data.tickets))
+    throw Error('В копии отсутствуют сохранённые данные или билеты.');
+  return {days:data.bundle.data.trip.days.length,tickets:Object.keys(data.tickets).length};
+}
+
+async function verifyProtectedBackup(){
+  const file=$('verifyBackupFile').files?.[0],password=$('verifyBackupPassword').value;
+  const result=$('verifyBackupResult'),button=$('verifyBackup');
+  if(!file||file.size>MAX_RESTORE_BYTES||password.length<PASSWORD_MIN){
+    result.textContent='Выберите файл до 128 МБ и введите пароль длиной не менее 12 символов.';return;
+  }
+  button.disabled=true;result.textContent='Проверяем целостность зашифрованного файла…';
+  try{
+    const summary=await inspectProtectedBackup(JSON.parse(await file.text()),password);
+    result.textContent=`✓ Копия проверена: ${summary.days} дней, билетов: ${summary.tickets}. Данные приложения не изменены.`;
+  }catch{result.textContent='Не удалось проверить копию: неверный пароль, повреждённый или несовместимый файл.'}
+  finally{button.disabled=false;$('verifyBackupPassword').value=''}
+}
+
 function dateForUser(value){
   const timestamp=Date.parse(value||'');
   return Number.isFinite(timestamp)?new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(timestamp)):'неизвестна';
@@ -440,7 +428,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v13')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v14')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -540,6 +528,7 @@ $('backupPromptOpen').addEventListener('click',()=>{acknowledgeBackupPrompt();$(
 $('cancelMapSettings').addEventListener('click',()=>$('mapSettingsDialog').close());
 $('closeVaultSettings').addEventListener('click',()=>$('mapSettingsDialog').close());
 $('exportVault').addEventListener('click',exportProtectedBackup);
+$('verifyBackup').addEventListener('click',verifyProtectedBackup);
 $('checkVault').addEventListener('click',()=>{void checkVaultReadiness()});
 $('persistVault').addEventListener('click',async()=>{
   const button=$('persistVault');if(!navigator.storage?.persist)return;
@@ -571,5 +560,5 @@ try{
   if(!crypto?.subtle||!window.indexedDB)throw Error('Для защиты нужен современный браузер и HTTPS.');
   encryptedRecord=await database('get');
   formMode(encryptedRecord?'unlock':'import');
-  navigator.serviceWorker?.register?.('./sw.js').then(watchUpdate).catch(()=>{});
+  initPwaUpdates(flush,{serviceWorker:navigator.serviceWorker,get:$,reload:()=>location.reload()});
 }catch(error){status(error.message||'Не удалось открыть защищённое хранилище.')}

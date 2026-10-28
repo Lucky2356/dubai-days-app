@@ -33,10 +33,14 @@ jobs:
             exit 1
           fi
           node --check public/vault.js
+          node --check public/vault-crypto.js
+          node --check public/vault-pwa.js
           node --check public/sw.js
           node tests/pwa-update.test.mjs
           node tests/vault-integrity.test.mjs
           node tests/integration.test.mjs
+          node tests/update-flow.test.mjs
+          node tests/ui-contract.test.mjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

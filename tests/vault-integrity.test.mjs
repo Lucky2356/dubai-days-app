@@ -3,13 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import vm from 'node:vm';
+import {keyFromPassword,encryptValue,decryptValue,unbase64} from '../public/vault-crypto.js';
 
 const source=readFileSync(new URL('../public/vault.js',import.meta.url),'utf8');
 const context={crypto:webcrypto,TextEncoder,TextDecoder,Uint8Array,btoa,atob,console};
 vm.createContext(context);
-vm.runInContext(source.slice(0,source.indexOf('function status('))+'\nthis.cryptoApi={keyFromPassword,encryptValue,decryptValue,unbase64};',context);
 vm.runInContext(source.slice(source.indexOf('function sameStages('),source.indexOf('function validateProtectedRecord('))+'\nthis.mappingApi={stageMapping,remapStageStorage};',context);
-const {keyFromPassword,encryptValue,decryptValue,unbase64}=context.cryptoApi;
 
 test('AES-GCM round-trip preserves notes and tickets without plaintext leaks',async()=>{
   const salt=webcrypto.getRandomValues(new Uint8Array(16));

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import vm from 'node:vm';
+import {keyFromPassword,encryptValue,decryptValue,unbase64} from '../public/vault-crypto.js';
 
 const source=readFileSync(new URL('../public/vault.js',import.meta.url),'utf8');
 
@@ -24,8 +25,8 @@ function vaultContext(){
   const indexedDB=mockIndexedDB();
   const ctx={indexedDB,crypto:webcrypto,TextEncoder,TextDecoder,Uint8Array,btoa,atob,console};
   vm.createContext(ctx);
-  vm.runInContext(source.slice(0,source.indexOf('function status('))+'\nthis.api={database,keyFromPassword,encryptValue,decryptValue,unbase64};',ctx);
-  return {api:ctx.api,indexedDB};
+  vm.runInContext(source.slice(source.indexOf('const DB_NAME='),source.indexOf('function status('))+'\nthis.database=database;',ctx);
+  return {api:{database:ctx.database,keyFromPassword,encryptValue,decryptValue,unbase64},indexedDB};
 }
 
 function bundleValidator(){
@@ -43,6 +44,15 @@ function syntheticBundle(){
     scripts:Object.fromEntries(['content.js','companion.js','travel-logic.js','app.js','route-focus.js','offline-atlas.js','travel-tools.js'].map(name=>[name,''])),
     styles:{'styles.css':''},assets:{hero:'placeholder',emergencyPdf:'placeholder'},
   };
+}
+
+function backupInspector(){
+  const ctx={FORMAT:'dubai-days-private-import-v1',ITERATIONS:310000,keyFromPassword,decryptValue,unbase64};
+  vm.createContext(ctx);
+  vm.runInContext(source.slice(source.indexOf('function validateBundle('),source.indexOf('function sameStages(')),ctx);
+  vm.runInContext(source.slice(source.indexOf('function validateProtectedRecord('),source.indexOf('const privateKeyName=')),ctx);
+  vm.runInContext(source.slice(source.indexOf('async function inspectProtectedBackup('),source.indexOf('async function verifyProtectedBackup('))+'\nthis.inspect=inspectProtectedBackup;',ctx);
+  return ctx.inspect;
 }
 
 test('encrypted vault survives simulated close and reopen',async()=>{
@@ -101,4 +111,21 @@ test('import rejects incomplete itinerary and missing modules',()=>{
   assert.throws(()=>validate(missingDay),/не подходящий файл/);
   const missingScript=syntheticBundle();delete missingScript.scripts['app.js'];
   assert.throws(()=>validate(missingScript),/отсутствуют компоненты/);
+});
+
+test('downloaded encrypted backup can be verified without replacing data',async()=>{
+  const salt=webcrypto.getRandomValues(new Uint8Array(16));
+  const password='backup verification password 123';
+  const key=await keyFromPassword(password,salt);
+  const record=await encryptValue({bundle:syntheticBundle(),storage:{note:'private'},tickets:{one:{body:'AQID'}}},key,salt);
+  assert.deepEqual(JSON.parse(JSON.stringify(await backupInspector()(record,password))),{days:8,tickets:1});
+  await assert.rejects(backupInspector()(record,'incorrect backup password'));
+});
+
+test('backup verification rejects missing tickets or invalid format',async()=>{
+  const salt=webcrypto.getRandomValues(new Uint8Array(16));
+  const password='backup verification password 123',key=await keyFromPassword(password,salt);
+  const record=await encryptValue({bundle:syntheticBundle(),storage:{}},key,salt);
+  await assert.rejects(backupInspector()(record,password),/отсутствуют сохранённые/);
+  await assert.rejects(backupInspector()({...record,format:'unexpected'},password),/не зашифрованная копия/);
 });
