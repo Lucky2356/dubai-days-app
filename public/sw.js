@@ -19,7 +19,7 @@ self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET'||new URL(event.request.url).origin!==self.location.origin)return;
   const url=new URL(event.request.url),scope=new URL(self.registration.scope);
-  if(!url.pathname.startsWith(scope.pathname)||!['/','/index.html','/vault.css','/vault.js','/vault-crypto.js','/vault-pwa.js','/manifest.webmanifest','/icon.svg','/icon-192.png','/icon-512.png'].some(suffix=>url.pathname===scope.pathname.replace(/\/$/,'')+suffix))return;
+  if(!url.pathname.startsWith(scope.pathname)||!['/','/index.html','/vault.css','/vault.js','/vault-crypto.js','/vault-pwa.js','/vault-trust.js','/manifest.webmanifest','/icon.svg','/icon-192.png','/icon-512.png'].some(suffix=>url.pathname===scope.pathname.replace(/\/$/,'')+suffix))return;
   event.respondWith(fetch(event.request).then(response=>{
     if(isShellResponse(response,event.request.url)){
       const copy=response.clone();
