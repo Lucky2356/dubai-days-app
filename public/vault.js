@@ -1,0 +1,219 @@
+// Public shell. The original itinerary and application assets are NEVER
+// fetched from GitHub Pages; they come from a user-supplied private bundle.
+const DB_NAME='dubai-days-encrypted-vault-v1';
+const FORMAT='dubai-days-private-import-v1';
+const PASSWORD_MIN=12;
+const ITERATIONS=310000;
+const $=id=>document.getElementById(id);
+let encryptedRecord=null,session=null,sessionKey=null,sessionToken=null;
+let persistQueue=Promise.resolve(),persistTimer=null;
+const encoder=new TextEncoder(),decoder=new TextDecoder();
+
+function openDB(){return new Promise((resolve,reject)=>{
+  const request=indexedDB.open(DB_NAME,1);
+  request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('records'))request.result.createObjectStore('records')};
+  request.onsuccess=()=>resolve(request.result);
+  request.onerror=()=>reject(Error('Хранилище браузера недоступно. Проверьте режим приватного просмотра.'));
+})}
+async function database(op,value){const db=await openDB();return new Promise((resolve,reject)=>{
+  const tx=db.transaction('records',op==='get'?'readonly':'readwrite'),store=tx.objectStore('records');
+  const request=op==='get'?store.get('encrypted'):store.put(value,'encrypted');
+  let result;
+  request.onsuccess=()=>{result=request.result};
+  tx.oncomplete=()=>{db.close();resolve(result)};
+  tx.onerror=tx.onabort=()=>{db.close();reject(Error('Не удалось сохранить защищённые данные на устройстве.'))};
+})}
+const base64=bytes=>{let text='';for(let i=0;i<bytes.length;i+=16384)text+=String.fromCharCode(...bytes.subarray(i,i+16384));return btoa(text)};
+const unbase64=value=>Uint8Array.from(atob(value),ch=>ch.charCodeAt(0));
+async function keyFromPassword(password,salt){
+  const material=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:ITERATIONS,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function encryptValue(value,key,salt){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,encoder.encode(JSON.stringify(value)));
+  return {format:'dubai-days-locked-v1',iterations:ITERATIONS,salt:base64(salt),iv:base64(iv),ciphertext:base64(new Uint8Array(ciphertext))};
+}
+async function decryptValue(record,key){
+  const plaintext=await crypto.subtle.decrypt({name:'AES-GCM',iv:unbase64(record.iv)},key,unbase64(record.ciphertext));
+  return JSON.parse(decoder.decode(plaintext));
+}
+function status(message,ok=false){const node=$('vaultStatus');node.textContent=message;node.classList.toggle('ok',ok)}
+function formMode(mode){
+  $('unlockForm').hidden=mode!=='unlock';$('importForm').hidden=mode!=='import';
+  $('switchToImport').hidden=mode!=='unlock';$('switchToUnlock').hidden=mode!=='import'||!encryptedRecord;
+  $('accessTitle').textContent=mode==='unlock'?'Открыть путеводитель':'Загрузить личный маршрут';
+  $('vaultExplainer').textContent=mode==='unlock'?'Введите свой пароль. Файл маршрута уже зашифрован на этом устройстве.':'Выберите личный JSON-файл путеводителя и задайте пароль. Только зашифрованная копия останется в браузере.';
+  status('');
+}
+function validateBundle(data){
+  if(data?.format!==FORMAT||data?.version!==48||!data.html?.includes('id="appScreen"')||!Array.isArray(data.data?.trip?.days)||data.data.trip.days.length!==8)throw Error('Это не подходящий файл личного путеводителя.');
+  const expected=['content.js','companion.js','travel-logic.js','app.js','route-focus.js','offline-atlas.js','travel-tools.js'];
+  if(expected.some(name=>typeof data.scripts?.[name]!=='string')||typeof data.styles?.['styles.css']!=='string')throw Error('В файле отсутствуют компоненты путеводителя.');
+  return data;
+}
+const privateKeyName=key=>/^dubai-days-(?:personal|companion|hub|manual-checks|home-mode|weather)-v1$/.test(key);
+function findLegacyStorage(){
+  const result={};
+  try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(privateKeyName(key)){const value=localStorage.getItem(key);if(value!==null)result[key]=value}}}catch{}
+  return result;
+}
+async function findLegacyTickets(){
+  try{
+    const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('dubai-days-local-tickets');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
+    if(!db.objectStoreNames.contains('files')){db.close();return {}}
+    const rows=await new Promise((resolve,reject)=>{const tx=db.transaction('files','readonly'),req=tx.objectStore('files').getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error)});db.close();
+    const result={};for(const item of rows){if(item?.id&&item.blob instanceof Blob&&item.blob.size<=6*1024*1024)result[item.id]={id:item.id,name:item.name,type:item.type,body:base64(new Uint8Array(await item.blob.arrayBuffer())),savedAt:item.savedAt}}
+    return result;
+  }catch{return {}}
+}
+async function clearLegacy(legacyStorage,legacyTickets){
+  try{for(const [key,value] of Object.entries(legacyStorage))if(localStorage.getItem(key)===value)localStorage.removeItem(key)}catch{}
+  if(Object.keys(legacyTickets).length)try{
+    const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('dubai-days-local-tickets');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+    if(db.objectStoreNames.contains('files'))await new Promise((resolve,reject)=>{const tx=db.transaction('files','readwrite');for(const id of Object.keys(legacyTickets))tx.objectStore('files').delete(id);tx.oncomplete=resolve;tx.onerror=reject});db.close();
+  }catch{status('Некоторые старые незашифрованные вложения не удалось удалить. Проверьте данные браузера.')}
+  try{
+    const names=await caches.keys();
+    await Promise.all(names.filter(name=>name.startsWith('dubai-days-')&&name!=='dubai-days-private-shell-v1').map(name=>caches.delete(name)));
+  }catch{}
+  try{
+    const currentScript=new URL('./sw.js',location.href).href;
+    const registrations=await navigator.serviceWorker?.getRegistrations?.()||[];
+    await Promise.all(registrations.filter(r=>r.active?.scriptURL!==currentScript&&r.active?.scriptURL?.endsWith('/sw.js')).map(r=>r.unregister()));
+  }catch{}
+}
+
+function schedulePersist(){
+  clearTimeout(persistTimer);
+  persistTimer=setTimeout(()=>{persistTimer=null;enqueuePersist()},150);
+}
+function enqueuePersist(){
+  if(!session||!sessionKey||!encryptedRecord)return persistQueue;
+  const copy=session,secret=sessionKey,salt=unbase64(encryptedRecord.salt);
+  persistQueue=persistQueue.then(async()=>{
+    const update=await encryptValue(copy,secret,salt);
+    await database('put',update);encryptedRecord=update;
+  }).catch(error=>{console.error('Encrypted save failed',error);$('running').dataset.saveError='true'});
+  return persistQueue;
+}
+async function flush(){if(persistTimer){clearTimeout(persistTimer);persistTimer=null;enqueuePersist()}await persistQueue}
+const jsLiteral=value=>JSON.stringify(value).replaceAll('<','\\u003c').replaceAll('\u2028','\\u2028').replaceAll('\u2029','\\u2029');
+const safeInline=(source,tag)=>source.replace(new RegExp('</'+tag,'gi'),'<\\/'+tag);
+const asScript=source=>'<script>'+safeInline(source,'script')+'<\/script>';
+const unpackExports=source=>source.replace(/^export\s+/gm,'');
+
+function buildPrivateHTML(bundle,storage,token){
+  let html=bundle.html;
+  const hero='data:image/webp;base64,'+bundle.assets.hero;
+  const styles=Object.values(bundle.styles).map(css=>css.replace(/url\(['"]?\.\/assets\/dubai-hero\.webp['"]?\)/g,'url("'+hero+'")')).join('\n');
+  html=html.replace(/<link\b[^>]*rel="stylesheet"[^>]*href="\.\/[^>]*>/g,'');
+  html=html.replace(/<script\b[^>]*src="\.\/[^>]*><\/script>/g,'');
+  html=html.replace(/<link\b[^>]*rel="(?:icon|manifest)"[^>]*>/g,'');
+  const rootUrl=location.href.replace(/(?:vault-shell\/)?(?:index\.html)?(?:[?#].*)?$/,'');
+  const head='<base href="'+rootUrl+'"><style>'+safeInline(styles,'style')+'</style>';
+  html=html.replace('</head>',head+'</head>');
+  const prelude=`\nwindow.__vaultData=${jsLiteral(bundle.data)};\nwindow.__vaultStorageData=${jsLiteral(storage)};\nwindow.__vaultToken=${jsLiteral(token)};\nwindow.__vaultLocalStorage={getItem(key){return Object.prototype.hasOwnProperty.call(window.__vaultStorageData,key)?window.__vaultStorageData[key]:null},setItem(key,value){window.__vaultStorageData[key]=String(value);parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:String(value)},'*')},removeItem(key){delete window.__vaultStorageData[key];parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:null},'*')}};\nconst oldFetch=window.fetch.bind(window);window.fetch=(resource,options)=>{const url=typeof resource==='string'?resource:'';if(/(?:^|\\/)data\\/(?:trip|geometry)\\.json(?:[?#]|$)/.test(url)){const key=url.includes('trip.json')?'trip':'geometry';return Promise.resolve(new Response(JSON.stringify(window.__vaultData[key]),{status:200,headers:{'Content-Type':'application/json'}}))}return oldFetch(resource,options)};\nlet vaultSequence=0;const pendingTickets=new Map();window.addEventListener('message',event=>{const m=event.data;if(m?.type!=='vault-ticket-response'||m.token!==window.__vaultToken)return;const request=pendingTickets.get(m.requestId);if(!request)return;pendingTickets.delete(m.requestId);m.error?request.reject(Error(m.error)):request.resolve(m.result)});window.__vaultTicketOp=(kind,id,record)=>new Promise((resolve,reject)=>{const requestId=++vaultSequence;pendingTickets.set(requestId,{resolve,reject});parent.postMessage({type:'vault-ticket',token:window.__vaultToken,requestId,kind,id,record},'*')});\n`;
+  const content=unpackExports(bundle.scripts['content.js']);
+  const companion=unpackExports(bundle.scripts['companion.js']);
+  const logic=unpackExports(bundle.scripts['travel-logic.js']);
+  const define=asScript(prelude)+asScript('window.__content=(()=>{'+content+';return {FOOD,SHOPS,EXTRAS,BOOKINGS,TIPS,CATEGORIES}})();')+
+    asScript('window.__companion=(()=>{'+companion+';return {distanceKm,nearestLeg,dailyBudget,weatherDescription,offlineMapSvg,bookingIcs}})();')+
+    asScript('window.__logic=(()=>{'+logic+';return {preferredTripContext,clockWithDay,analyzePlanB,weightedDailyBudget,spendingByDay,calendarForStages,extraRecommendations,validateImportedBundle,TRIP_START_UTC}})();');
+  let app=bundle.scripts['app.js'].replace(/^import\s+.*?;\s*$/gm,'');
+  app=app.replace("if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});",'');
+  app=app.replace('./assets/dubai-emergency-card.pdf','data:application/pdf;base64,'+bundle.assets.emergencyPdf);
+  const appHead='const localStorage=window.__vaultLocalStorage;const {FOOD,SHOPS,EXTRAS,BOOKINGS,TIPS,CATEGORIES}=window.__content;const {distanceKm,nearestLeg,dailyBudget,weatherDescription,offlineMapSvg,bookingIcs}=window.__companion;';
+  let tools=bundle.scripts['travel-tools.js'].replace(/^import\s+.*?;\s*$/gm,'');
+  const ticketFunction=/async function ticketDB\(\)\{[^\n]*\}\nasync function ticketOp\(kind,id,record\)\{[^\n]*\}/;
+  if(!ticketFunction.test(tools))throw Error('Ticket storage adapter does not match the private-app version');
+  tools=tools.replace(ticketFunction,'async function ticketOp(kind,id,record){return window.__vaultTicketOp(kind,id,record)}');
+  const toolsHead='const localStorage=window.__vaultLocalStorage;const {BOOKINGS,EXTRAS}=window.__content;const {offlineMapSvg}=window.__companion;const {preferredTripContext,clockWithDay,analyzePlanB,weightedDailyBudget,spendingByDay,calendarForStages,extraRecommendations,validateImportedBundle,TRIP_START_UTC}=window.__logic;';
+  const main=asScript('(function(){'+appHead+app+'\n})();')+asScript('(function(){'+bundle.scripts['route-focus.js']+'\n})();')+asScript('(function(){'+bundle.scripts['offline-atlas.js']+'\n})();')+asScript('(function(){'+toolsHead+tools+'\n})();');
+  return html.replace('</body>',define+main+'</body>');
+}
+
+async function lock(){
+  await flush();
+  $('privateFrame').srcdoc='';$('running').hidden=true;$('vaultGate').hidden=false;
+  session=null;sessionKey=null;sessionToken=null;
+  $('unlockPassword').value='';$('importPassword').value='';$('importConfirm').value='';$('importFile').value='';
+  formMode(encryptedRecord?'unlock':'import');
+}
+function unlockFrame(){
+  sessionToken=base64(crypto.getRandomValues(new Uint8Array(18)));
+  const html=buildPrivateHTML(session.bundle,session.storage,sessionToken);
+  $('privateFrame').srcdoc=html;
+  $('vaultGate').hidden=true;$('running').hidden=false;
+}
+async function handleUnlock(event){
+  event.preventDefault();const pass=$('unlockPassword').value,button=$('unlockButton');
+  button.disabled=true;status('Расшифровываем данные…');
+  try{
+    sessionKey=await keyFromPassword(pass,unbase64(encryptedRecord.salt));
+    session=await decryptValue(encryptedRecord,sessionKey);
+    validateBundle(session.bundle);unlockFrame();
+  }catch(error){session=null;sessionKey=null;status('Не удалось открыть. Проверьте пароль или состояние хранилища.')}
+  finally{button.disabled=false}
+}
+async function handleImport(event){
+  event.preventDefault();const pass=$('importPassword').value,confirmPass=$('importConfirm').value,button=$('importButton'),file=$('importFile').files?.[0];
+  if(!file||file.size>8*1024*1024){status('Выберите JSON-файл размером не более 8 МБ.');return}
+  if(pass.length<PASSWORD_MIN||pass!==confirmPass){status('Пароли должны совпадать и содержать не менее 12 символов.');return}
+  if(encryptedRecord&&!confirm('Заменить сохранённый на этом устройстве маршрут? Сделайте копию текущих данных перед заменой.'))return;
+  button.disabled=true;status('Проверяем и шифруем ваш маршрут…');
+  try{
+    const bundle=validateBundle(JSON.parse(await file.text()));
+    const legacyStorage=encryptedRecord?{}:findLegacyStorage();
+    const legacyTickets=encryptedRecord?{}:await findLegacyTickets();
+    const salt=crypto.getRandomValues(new Uint8Array(16));
+    const key=await keyFromPassword(pass,salt);
+    const nextSession={bundle,storage:legacyStorage,tickets:legacyTickets};
+    const record=await encryptValue(nextSession,key,salt);
+    await database('put',record);
+    encryptedRecord=record;session=nextSession;sessionKey=key;
+    await clearLegacy(legacyStorage,legacyTickets);
+    unlockFrame();
+  }catch(error){status(error?.message||'Не удалось импортировать файл. Данные не изменены.')}
+  finally{button.disabled=false}
+}
+
+async function handleVaultMessage(event){
+  const m=event.data;
+  if(!session||!sessionToken||event.source!==$('privateFrame').contentWindow||m?.token!==sessionToken)return;
+  if(m.type==='vault-storage'){
+    if(!privateKeyName(m.key)||typeof m.value!=='string'&&m.value!==null)return;
+    if(m.value===null)delete session.storage[m.key];else session.storage[m.key]=m.value.slice(0,2*1024*1024);
+    schedulePersist();return;
+  }
+  if(m.type!=='vault-ticket'||!Number.isInteger(m.requestId))return;
+  let result=null,error=null;
+  try{
+    const list=session.tickets||={};
+    if(m.kind==='put'){
+      if(!m.record?.blob||typeof m.record.blob.arrayBuffer!=='function'||m.record.blob.size>6*1024*1024||!m.id)throw Error('Некорректное вложение');
+      list[m.id]={id:m.id,name:String(m.record.name||'Билет').slice(0,120),type:m.record.type,body:base64(new Uint8Array(await m.record.blob.arrayBuffer())),savedAt:m.record.savedAt};
+      schedulePersist();
+    }else if(m.kind==='delete'){delete list[m.id];schedulePersist()}
+    else if(m.kind==='get'){const item=list[m.id];result=item?{...item,blob:new Blob([unbase64(item.body)],{type:item.type})}:undefined}
+    else if(m.kind==='all'){result=Object.values(list).map(item=>({...item,blob:new Blob([unbase64(item.body)],{type:item.type})}))}
+    else throw Error('Неизвестная операция');
+  }catch(e){error=e.message||'Ошибка сохранения файла'}
+  event.source.postMessage({type:'vault-ticket-response',token:sessionToken,requestId:m.requestId,result,error},'*');
+}
+
+window.addEventListener('message',handleVaultMessage);
+window.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flush()});
+window.addEventListener('pagehide',()=>{flush()});
+document.querySelectorAll('[data-toggle-password]').forEach(button=>button.addEventListener('click',()=>{const input=$(button.dataset.togglePassword);input.type=input.type==='password'?'text':'password';button.setAttribute('aria-label',input.type==='password'?'Показать пароль':'Скрыть пароль')}));
+$('unlockForm').addEventListener('submit',handleUnlock);
+$('importForm').addEventListener('submit',handleImport);
+$('switchToImport').addEventListener('click',()=>formMode('import'));
+$('switchToUnlock').addEventListener('click',()=>formMode('unlock'));
+$('lockVault').addEventListener('click',lock);
+try{
+  if(!crypto?.subtle||!window.indexedDB)throw Error('Для защиты нужен современный браузер и HTTPS.');
+  encryptedRecord=await database('get');
+  formMode(encryptedRecord?'unlock':'import');
+  navigator.serviceWorker?.register?.('./sw.js').catch(()=>{});
+}catch(error){status(error.message||'Не удалось открыть защищённое хранилище.')}
