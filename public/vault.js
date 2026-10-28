@@ -50,7 +50,7 @@ function formMode(mode){
   $('accessTitle').textContent=titles[mode]||titles.unlock;
   const explainers={
     unlock:'Введите свой пароль. Маршрут и все изменения уже зашифрованы на этом устройстве.',
-    import:updating?'Выберите обновлённый JSON и введите текущий пароль. Отметки, расходы и сохранённые билеты останутся на месте.':'Выберите личный JSON-файл и задайте пароль. Только зашифрованная копия останется в браузере.',
+    import:updating?'Выберите обновлённый JSON и введите текущий пароль. Отметки и билеты сохранятся, даже если этапы переставлены внутри дня.':'Выберите личный JSON-файл и задайте пароль. Только зашифрованная копия останется в браузере.',
     restore:'Выберите защищённую резервную копию и введите её пароль. Восстановятся маршрут, отметки, расходы и билеты.'
   };
   $('vaultExplainer').textContent=explainers[mode]||explainers.unlock;
@@ -68,6 +68,58 @@ function sameStages(previous,next){
   return a.length===b.length&&a.every((day,i)=>day.date===b[i]?.date&&day.legs.length===b[i]?.legs.length&&day.legs.every((leg,j)=>{
     const other=b[i].legs[j];return leg.mode===other.mode&&leg.from===other.from&&leg.to===other.to;
   }));
+}
+function stageMapping(previous,next){
+  const a=previous.data.trip.days,b=next.data.trip.days;
+  if(a.length!==b.length)throw Error('В JSON изменилось количество дней. Прежний путеводитель сохранён.');
+  return a.map((day,d)=>{
+    const other=b[d];
+    if(day.date!==other?.date||!Array.isArray(day.legs)||!Array.isArray(other.legs)||day.legs.length!==other.legs.length)
+      throw Error('В JSON изменился состав дней или этапов. Обновление отменено во избежание потери отметок.');
+    const key=leg=>JSON.stringify([leg?.mode,leg?.from,leg?.to]);
+    const old=day.legs.map(key),fresh=other.legs.map(key);
+    if(old.every((value,i)=>value===fresh[i]))return old.map((_,i)=>i);
+    if(new Set(old).size!==old.length||new Set(fresh).size!==fresh.length)
+      throw Error('Повторяющиеся этапы невозможно безопасно сопоставить. Обновление отменено.');
+    const mapping=old.map(value=>fresh.indexOf(value));
+    if(mapping.includes(-1))throw Error('В JSON добавлены или удалены этапы. Обновление отменено для защиты отметок.');
+    return mapping;
+  });
+}
+function remapStageStorage(source,mapping){
+  const storage={...(source||{})};
+  if(mapping.every(indexes=>indexes.every((next,i)=>next===i)))return storage;
+  const reindex=(day,value)=>{
+    const index=Number(value),replacement=mapping[day]?.[index];
+    if(!Number.isInteger(index)||!Number.isInteger(replacement))throw Error('В сохранённых отметках есть неизвестный этап. Обновление отменено.');
+    return replacement;
+  };
+  const remapSet=value=>{
+    if(value===undefined)return value;
+    if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Неверный формат сохранённых этапов. Обновление отменено.');
+    return Object.fromEntries(Object.entries(value).map(([day,indexes])=>{
+      if(!Array.isArray(indexes))throw Error('Не удалось перенести отмеченные этапы.');
+      return [day,indexes.map(index=>reindex(day,index))];
+    }));
+  };
+  const personal='dubai-days-personal-v1',companion='dubai-days-companion-v1';
+  try{
+    if(storage[personal]){
+      const saved=JSON.parse(storage[personal]);
+      if(!saved||typeof saved!=='object'||Array.isArray(saved))throw Error();
+      saved.completed=remapSet(saved.completed);
+      if(saved.progress)saved.progress=Object.fromEntries(Object.entries(saved.progress).map(([day,index])=>[day,reindex(day,index)]));
+      if(saved.undo&&Number.isInteger(saved.undo.step))saved.undo.step=reindex(saved.undo.day,saved.undo.step);
+      storage[personal]=JSON.stringify(saved);
+    }
+    if(storage[companion]){
+      const saved=JSON.parse(storage[companion]);
+      if(!saved||typeof saved!=='object'||Array.isArray(saved))throw Error();
+      saved.skipped=remapSet(saved.skipped);saved.deferred=remapSet(saved.deferred);
+      storage[companion]=JSON.stringify(saved);
+    }
+  }catch{throw Error('Не удалось безопасно перенести сохранённый прогресс. Скачайте защищённую копию перед обновлением.')}
+  return storage;
 }
 function validateProtectedRecord(value){
   if(value?.format!=='dubai-days-locked-v1'||value.iterations!==ITERATIONS||
@@ -122,7 +174,7 @@ function schedulePersist(){
 }
 function enqueuePersist(){
   if(!session||!sessionKey||!encryptedRecord)return persistQueue;
-  const snapshot={bundle:session.bundle,storage:{...session.storage},tickets:{...(session.tickets||{})},maptilerKey:session.maptilerKey||''};
+  const snapshot={bundle:session.bundle,storage:{...session.storage},tickets:{...(session.tickets||{})},maptilerKey:session.maptilerKey||'',lastBackupAt:session.lastBackupAt||''};
   const secret=sessionKey,salt=unbase64(encryptedRecord.salt);
   persistQueue=persistQueue.then(async()=>{
     const update=await encryptValue(snapshot,secret,salt);
@@ -140,6 +192,25 @@ const safeInline=(source,tag)=>source.replace(new RegExp('</'+tag,'gi'),'<\\/'+t
 const asScript=source=>'<script>'+safeInline(source,'script')+'<\/script>';
 const unpackExports=source=>source.replace(/^export\s+/gm,'');
 
+function unifyPrivateBackups(app,tools){
+  // Older private JSONs contain multiple incompatible backup formats, one of
+  // which exports expense notes in plaintext. Adapt them at unlock time so
+  // existing travellers receive one protected backup without reimporting.
+  if(app.includes('function backupPanel()')){
+    const panel=/^function backupPanel\(\)\{return .*$/m;
+    if(!panel.test(app))throw Error('Устаревший формат панели копирования. Обновите личный JSON.');
+    app=app.replace(panel,`function backupPanel(){return '<section class="backup-panel"><h3>🔐 Защищённая копия</h3><p>Весь маршрут, расходы и билеты можно сохранить одним зашифрованным файлом. Он откроется только с вашим паролем.</p><div><button type="button" data-vault-backup>Открыть настройки и резервную копию →</button></div></section>'}`);
+    app=app.replace(/^function backupPayload\(\)\{.*$/m,'function backupPayload(){throw Error("Незашифрованный экспорт отключён. Используйте защищённую копию.")}');
+    app=app.replace(/^async function shareBackup\(\)\{[\s\S]*?^\}/m,'async function shareBackup(){window.__vaultShowSettings()}');
+    app=app.replace(/^function exportBackup\(\)\{.*$/m,'function exportBackup(){window.__vaultShowSettings()}');
+  }
+  const oldTransfer='<button type="button" data-travel-tab="sync"><strong>⇄ Перенос данных</strong><span>Вручную, защищённым файлом</span></button>';
+  if(tools.includes(oldTransfer))tools=tools.replace(oldTransfer,'<button type="button" data-vault-backup><strong>🔐 Защищённая копия</strong><span>Маршрут, расходы и билеты одним файлом</span></button>');
+  const oldTicketCopy=/<div class="travel-ticket-backup">[\s\S]*?<\/div><input id="travel-ticket-backup-file"[^>]*><\/div>/;
+  if(oldTicketCopy.test(tools))tools=tools.replace(oldTicketCopy,'<div class="travel-ticket-backup"><h4>Единая резервная копия</h4><p>Билеты теперь сохраняются вместе с маршрутом и расходами через настройки путеводителя.</p><button type="button" data-vault-backup>Открыть защищённую копию →</button></div>');
+  return {app,tools};
+}
+
 function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
   let html=bundle.html;
   const hero='data:image/webp;base64,'+bundle.assets.hero;
@@ -154,7 +225,8 @@ function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
   const content=unpackExports(bundle.scripts['content.js']);
   const companion=unpackExports(bundle.scripts['companion.js']);
   const logic=unpackExports(bundle.scripts['travel-logic.js']);
-  const define=asScript(prelude)+asScript('window.__content=(()=>{'+content+';return {FOOD,SHOPS,EXTRAS,BOOKINGS,TIPS,CATEGORIES}})();')+
+  const protectedPrelude=prelude+`\nwindow.__vaultShowSettings=()=>parent.postMessage({type:'vault-show-settings',token:window.__vaultToken},'*');\ndocument.addEventListener('click',event=>{if(event.target.closest?.('[data-vault-backup]')){event.preventDefault();window.__vaultShowSettings()}},true);\n`;
+  const define=asScript(protectedPrelude)+asScript('window.__content=(()=>{'+content+';return {FOOD,SHOPS,EXTRAS,BOOKINGS,TIPS,CATEGORIES}})();')+
     asScript('window.__companion=(()=>{'+companion+';return {distanceKm,nearestLeg,dailyBudget,weatherDescription,offlineMapSvg,bookingIcs}})();')+
     asScript('window.__logic=(()=>{'+logic+';return {preferredTripContext,clockWithDay,analyzePlanB,weightedDailyBudget,spendingByDay,calendarForStages,extraRecommendations,validateImportedBundle,TRIP_START_UTC}})();');
   let app=bundle.scripts['app.js'].replace(/^import\s+.*?;\s*$/gm,'');
@@ -166,6 +238,7 @@ function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
   if(!ticketFunction.test(tools))throw Error('Ticket storage adapter does not match the private-app version');
   tools=tools.replace(ticketFunction,'async function ticketOp(kind,id,record){return window.__vaultTicketOp(kind,id,record)}');
   const toolsHead='const localStorage=window.__vaultLocalStorage;const {BOOKINGS,EXTRAS}=window.__content;const {offlineMapSvg}=window.__companion;const {preferredTripContext,clockWithDay,analyzePlanB,weightedDailyBudget,spendingByDay,calendarForStages,extraRecommendations,validateImportedBundle,TRIP_START_UTC}=window.__logic;';
+  ({app,tools}=unifyPrivateBackups(app,tools));
   const main=asScript('(function(){'+appHead+app+'\n})();')+asScript('(function(){'+bundle.scripts['route-focus.js']+'\n})();')+asScript('(function(){'+bundle.scripts['offline-atlas.js']+'\n})();')+asScript('(function(){'+toolsHead+tools+'\n})();');
   return html.replace('</body>',define+main+'</body>');
 }
@@ -211,9 +284,8 @@ async function handleImport(event){
       try{oldSession=await decryptValue(encryptedRecord,key)}
       catch{throw Error('Текущий пароль неверный. Сохранённый путеводитель не изменён.')}
       validateBundle(oldSession.bundle);
-      if(!sameStages(oldSession.bundle,bundle))
-        throw Error('В JSON изменился состав или порядок этапов. Обновление отменено, чтобы не потерять отметки. Сначала скачайте защищённую копию.');
-      nextSession={...oldSession,bundle};
+      const mapping=stageMapping(oldSession.bundle,bundle);
+      nextSession={...oldSession,bundle,storage:remapStageStorage(oldSession.storage,mapping)};
     }else{
       legacyStorage=findLegacyStorage();legacyTickets=await findLegacyTickets();
       nextSession={bundle,storage:legacyStorage,tickets:legacyTickets};
@@ -255,19 +327,72 @@ async function handleRestore(event){
 
 async function exportProtectedBackup(){
   if(!session)return;
+  const previousDate=session.lastBackupAt||'';
   try{
     await flush();
-    const blob=new Blob([JSON.stringify({...encryptedRecord,exportedAt:new Date().toISOString()})],{type:'application/json'});
+    session.lastBackupAt=new Date().toISOString();schedulePersist();await flush();
+    const blob=new Blob([JSON.stringify({...encryptedRecord,exportedAt:session.lastBackupAt})],{type:'application/json'});
     const url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url;link.download='dubai-days-protected-'+new Date().toISOString().slice(0,10)+'.json';
     document.body.append(link);link.click();link.remove();
     setTimeout(()=>URL.revokeObjectURL(url),30000);
-  }catch{alert('Не удалось скачать резервную копию. Проверьте, разрешены ли загрузки и доступны ли данные браузера.')}
+    void refreshVaultHealth();
+  }catch{session.lastBackupAt=previousDate;schedulePersist();void flush().catch(()=>{});alert('Не удалось скачать резервную копию. Проверьте, разрешены ли загрузки и доступны ли данные браузера.')}
+}
+
+function dateForUser(value){
+  const timestamp=Date.parse(value||'');
+  return Number.isFinite(timestamp)?new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(timestamp)):'неизвестна';
+}
+function readableSize(value){return Number.isFinite(value)?(value/1024/1024).toFixed(value>=1024*1024?1:2)+' МБ':'неизвестно'}
+async function vaultStorageInfo(){
+  let persisted=null,estimate=null,offlineReady=false;
+  try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
+  try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v5')}catch{}
+  return {persisted,estimate,offlineReady};
+}
+async function refreshVaultHealth(){
+  if(!session)return;
+  $('vaultBackupStatus').textContent=session.lastBackupAt?'Последняя подготовленная копия: '+dateForUser(session.lastBackupAt)+'. Проверьте файл в загрузках.':'Вы ещё не скачивали защищённую копию на этом устройстве.';
+  const {persisted,estimate}=await vaultStorageInfo();
+  if(!session)return;
+  const parts=[persisted===true?'Браузер закрепил данные':persisted===false?'Данные могут быть очищены браузером':'Статус закрепления недоступен'];
+  if(Number.isFinite(estimate?.usage)&&Number.isFinite(estimate?.quota))parts.push('Использовано доменом: '+readableSize(estimate.usage)+' из примерно '+readableSize(estimate.quota));
+  $('vaultStorageStatus').textContent=parts.join(' · ')+'. Ручная резервная копия всё равно нужна.';
+  const button=$('persistVault');button.disabled=persisted===true||!navigator.storage?.persist;
+  button.textContent=persisted===true?'✓ Хранение закреплено браузером':navigator.storage?.persist?'Защитить данные от автоматической очистки':'Браузер не поддерживает закрепление данных';
+}
+async function checkVaultReadiness(){
+  if(!session)return;
+  const {persisted,offlineReady}=await vaultStorageInfo();
+  if(!session)return;
+  const last=Date.parse(session.lastBackupAt||''),recent=Number.isFinite(last)&&Date.now()-last<30*86400000&&last<=Date.now();
+  const files=Object.keys(session.tickets||{}).length;
+  const checks=[
+    {level:'ok',message:'Все '+(session.bundle?.data?.trip?.days?.length||0)+' дней маршрута доступны после разблокировки'},
+    {level:lastPersistError?'fail':'ok',message:lastPersistError?'Есть ошибка сохранения — нажмите «Повторить» над путеводителем':'Последние изменения сохранены в зашифрованном виде'},
+    {level:recent?'ok':'warn',message:recent?'Недавняя защищённая копия подготовлена: '+dateForUser(session.lastBackupAt):'Скачайте свежую защищённую копию перед поездкой'},
+    {level:persisted?'ok':'warn',message:persisted?'Хранение закреплено браузером':'Закрепите хранилище, если браузер это позволяет'},
+    {level:offlineReady?'ok':'warn',message:offlineReady?'Оболочка сайта сохранена для офлайн-входа':'Откройте сайт ещё раз с интернетом, чтобы подготовить офлайн-вход'},
+    {level:'ok',message:'Прикреплено файлов билетов: '+files+'. Откройте нужные QR и PDF заранее'},
+    {level:'warn',message:'Перед вылетом вручную перепроверьте расписания транспорта, цены и ссылки в разделе «Данные» маршрута'}
+  ];
+  if(Number.isFinite(window.innerWidth)&&window.innerWidth<=600){
+    const overflows=document.documentElement.scrollWidth>window.innerWidth+1;
+    checks.push({level:overflows?'fail':'ok',message:overflows?'На телефоне появилась горизонтальная прокрутка — сообщите об этом разработчику':'Ширина мобильного экрана подходит: горизонтальной прокрутки оболочки нет'});
+  }
+  const list=$('vaultChecks');list.replaceChildren();
+  for(const check of checks){const li=document.createElement('li'),mark=document.createElement('span'),label=document.createElement('span');
+    li.dataset.level=check.level;mark.className='vault-check-symbol';mark.textContent=check.level==='ok'?'✓':check.level==='fail'?'!':'•';label.textContent=check.message;li.append(mark,label);list.append(li)}
+  list.hidden=false;
+  await refreshVaultHealth();
 }
 
 async function handleVaultMessage(event){
   const m=event.data;
   if(!session||!sessionToken||event.source!==$('privateFrame').contentWindow||m?.token!==sessionToken)return;
+  if(m.type==='vault-show-settings'){$('mapSettings').click();return}
   if(m.type==='vault-storage'){
     if(!privateKeyName(m.key)||typeof m.value!=='string'&&m.value!==null)return;
     if(m.value===null)delete session.storage[m.key];else session.storage[m.key]=m.value.slice(0,2*1024*1024);
@@ -304,10 +429,19 @@ $('lockVault').addEventListener('click',lock);
 $('mapSettings').addEventListener('click',()=>{
   if(!session)return;
   $('maptilerKey').value=session.maptilerKey||'';
+  $('vaultChecks').hidden=true;
   $('mapSettingsDialog').showModal();
+  void refreshVaultHealth();
 });
 $('cancelMapSettings').addEventListener('click',()=>$('mapSettingsDialog').close());
 $('exportVault').addEventListener('click',exportProtectedBackup);
+$('checkVault').addEventListener('click',()=>{void checkVaultReadiness()});
+$('persistVault').addEventListener('click',async()=>{
+  const button=$('persistVault');if(!navigator.storage?.persist)return;
+  button.disabled=true;button.textContent='Запрашиваем надёжное хранение…';
+  try{const granted=await navigator.storage.persist();await refreshVaultHealth();if(!granted)$('vaultStorageStatus').textContent='Браузер пока не разрешил закрепление. Скачайте защищённую копию и периодически открывайте сайт.'}
+  catch{$('vaultStorageStatus').textContent='Не удалось запросить закрепление. Скачайте защищённую копию.';button.disabled=false}
+});
 $('updateVault').addEventListener('click',async()=>{
   $('mapSettingsDialog').close();
   await lock();

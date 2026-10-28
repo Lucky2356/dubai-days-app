@@ -8,10 +8,10 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=4">
+  <link rel="stylesheet" href="./vault.css?v=5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="./vault.js?v=4"></script>
+  <script type="module" src="./vault.js?v=5"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -75,9 +75,18 @@
     </form>
     <section class="vault-backup" aria-label="Резервная копия и обновление">
       <h3>Данные и резервная копия</h3>
-      <p>Защищённая копия включает маршрут, отметки, расходы и сохранённые билеты. Для восстановления понадобится ваш пароль.</p>
+      <p>Одна защищённая копия включает маршрут, отметки, расходы и все сохранённые билеты. Для восстановления понадобится ваш пароль.</p>
+      <p class="vault-muted" id="vaultBackupStatus" role="status">Копия ещё не создавалась на этом устройстве.</p>
       <button type="button" id="exportVault">↓ Скачать защищённую копию</button>
       <button type="button" id="updateVault">↑ Обновить маршрут из JSON</button>
+    </section>
+    <section class="vault-backup vault-health" aria-label="Надёжность хранения и проверка поездки">
+      <h3>Надёжность хранения</h3>
+      <p id="vaultStorageStatus" role="status">Проверяем хранилище браузера…</p>
+      <button type="button" id="persistVault">Защитить данные от автоматической очистки</button>
+      <button type="button" id="checkVault">✓ Проверить готовность к поездке</button>
+      <ul class="vault-checks" id="vaultChecks" aria-live="polite" hidden></ul>
+      <p class="vault-official">Перед поездкой проверьте <a href="https://www.rta.ae/wps/portal/rta/ae/public-transport/journeyplanner" target="_blank" rel="noopener noreferrer">маршруты и водный транспорт на официальном сайте RTA ↗</a>.</p>
     </section>
   </dialog>
 </body>
