@@ -1,6 +1,6 @@
 // Cache only the generic unlock screen. Never cache a user's imported bundle.
-const CACHE='dubai-days-private-shell-v6';
-const SHELL=['./','./index.html','./vault.css?v=6','./vault.js?v=6','./manifest.webmanifest','./icon.svg'];
+const CACHE='dubai-days-private-shell-v7';
+const SHELL=['./','./index.html','./vault.css?v=7','./vault.js?v=7','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE&&key.startsWith('dubai-days-')).map(key=>caches.delete(key)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',event=>{

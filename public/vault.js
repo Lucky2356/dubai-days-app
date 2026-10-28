@@ -61,6 +61,10 @@ function validateBundle(data){
   if(data?.format!==FORMAT||!Number.isInteger(data.version)||data.version<48||!data.html?.includes('id="appScreen"')||!Array.isArray(data.data?.trip?.days)||data.data.trip.days.length!==8)throw Error('Это не подходящий файл личного путеводителя.');
   const expected=['content.js','companion.js','travel-logic.js','app.js','route-focus.js','offline-atlas.js','travel-tools.js'];
   if(expected.some(name=>typeof data.scripts?.[name]!=='string')||typeof data.styles?.['styles.css']!=='string'||typeof data.assets?.hero!=='string'||typeof data.assets?.emergencyPdf!=='string')throw Error('В файле отсутствуют компоненты путеводителя.');
+  // Import bundles are executable applications. Reject executable HTML that
+  // is absent from the known build layout; never present arbitrary JSON as safe.
+  const scripts=[...data.html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
+  if(scripts.length!==(data.html.match(/<script\b/gi)||[]).length||scripts.some(([,attributes,body])=>body.trim()||!/\bsrc=["']\.\/[\w/-]+\.js(?:\?[\w=&.-]+)?["']/i.test(attributes))||/<(?:iframe|object|embed)\b|\s+on[a-z]{3,}\s*=|javascript\s*:/i.test(data.html))throw Error('Файл содержит неподдерживаемый HTML-код. Загружайте только файл Dubai Days из доверенного источника.');
   return data;
 }
 function sameStages(previous,next){
@@ -214,7 +218,9 @@ function unifyPrivateBackups(app,tools){
 function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
   let html=bundle.html;
   const hero='data:image/webp;base64,'+bundle.assets.hero;
-  const styles=Object.values(bundle.styles).map(css=>css.replace(/url\(['"]?\.\/assets\/dubai-hero\.webp['"]?\)/g,'url("'+hero+'")')).join('\n');
+  // Keep already-encrypted v48 imports readable without forcing a destructive reimport.
+  const legacyLegibility=bundle.styles['ux-v49.css']?'':`@media(max-width:830px){.screen :is(.map-caption,.map-toolbar p,.companion-current span,.date-button strong,.cover p,.freshness-checklist small,.heading-more p){font-size:13px!important;line-height:1.5}.screen :is(.stage-secondary>summary,.currency-converter small,.currency-converter label){font-size:13px!important}.screen :is(.stage-controls button,.map-toolbar .segmented button){min-height:44px;font-size:13px!important}.travel-hub-dialog :is(.travel-kicker,.travel-section-heading p,.travel-now-heading>span,.travel-map-offline>span){font-size:13px!important}.travel-hub-dialog :is(.travel-now-navigation button,.travel-map-links a,.travel-map-links button,.travel-map-scope button,.travel-tabs button){min-height:44px!important;font-size:13px!important}}@media(max-width:580px){.screen .companion-primary-actions>*{min-height:46px!important;font-size:14px!important}.screen .companion-quick-row button{min-height:44px!important;font-size:13px!important}}`;
+  const styles=Object.values(bundle.styles).map(css=>css.replace(/url\(['"]?\.\/assets\/dubai-hero\.webp['"]?\)/g,'url("'+hero+'")')).join('\n')+'\n'+legacyLegibility;
   html=html.replace(/<link\b[^>]*rel="stylesheet"[^>]*href="\.\/[^>]*>/g,'');
   html=html.replace(/<script\b[^>]*src="\.\/[^>]*><\/script>/g,'');
   html=html.replace(/<link\b[^>]*rel="(?:icon|manifest)"[^>]*>/g,'');
@@ -349,7 +355,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v6')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v7')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -391,7 +397,7 @@ async function checkVaultReadiness(){
 
 async function handleVaultMessage(event){
   const m=event.data;
-  if(!session||!sessionToken||event.source!==$('privateFrame').contentWindow||m?.token!==sessionToken)return;
+  if(!session||!sessionToken||event.origin!==location.origin||event.source!==$('privateFrame').contentWindow||m?.token!==sessionToken)return;
   if(m.type==='vault-show-settings'){$('mapSettings').click();return}
   if(m.type==='vault-storage'){
     if(!privateKeyName(m.key)||typeof m.value!=='string'&&m.value!==null)return;
@@ -411,7 +417,7 @@ async function handleVaultMessage(event){
     else if(m.kind==='all'){result=Object.values(list).map(item=>({...item,blob:new Blob([unbase64(item.body)],{type:item.type})}))}
     else throw Error('Неизвестная операция');
   }catch(e){error=e.message||'Ошибка сохранения файла'}
-  event.source.postMessage({type:'vault-ticket-response',token:sessionToken,requestId:m.requestId,result,error},'*');
+  event.source.postMessage({type:'vault-ticket-response',token:sessionToken,requestId:m.requestId,result,error},location.origin);
 }
 
 window.addEventListener('message',handleVaultMessage);

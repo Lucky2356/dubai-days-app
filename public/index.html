@@ -8,10 +8,10 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=6">
+  <link rel="stylesheet" href="./vault.css?v=7">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="./vault.js?v=6"></script>
+  <script type="module" src="./vault.js?v=7"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -31,8 +31,9 @@
         <button class="primary-button" type="submit" id="unlockButton">Открыть мой маршрут →</button>
       </form>
       <form id="importForm" hidden>
-        <label for="importFile">Файл личного путеводителя</label>
+        <label for="importFile">Ваш маршрут — файл .json</label>
         <input id="importFile" type="file" accept=".json,application/json" required>
+        <details class="vault-help"><summary>Где взять файл и как открыть сайт?</summary><p>Возьмите личный файл Dubai Days, который вы сохранили отдельно. Это файл маршрута, а не зашифрованная резервная копия. Выберите его здесь один раз и задайте пароль. В дальнейшем на этом устройстве понадобится только пароль.</p><p>Не загружайте JSON из неизвестных источников: файл маршрута содержит исполняемые компоненты приложения.</p></details>
         <div class="password-set" id="importNewPasswords">
           <label for="importPassword">Придумайте пароль (не менее 12 символов)</label>
           <div class="password-field"><input id="importPassword" type="password" autocomplete="new-password" required minlength="12" placeholder="Надёжный пароль"><button type="button" data-toggle-password="importPassword" aria-label="Показать пароль">◉</button></div>
@@ -48,6 +49,7 @@
       <form id="restoreForm" hidden>
         <label for="restoreFile">Зашифрованная резервная копия</label>
         <input id="restoreFile" type="file" accept=".json,application/json" required>
+        <p class="vault-form-hint">Используйте копию, ранее скачанную из «Настройки → Скачать защищённую копию», а не обычный файл маршрута.</p>
         <label for="restorePassword">Пароль от копии</label>
         <div class="password-field"><input id="restorePassword" type="password" autocomplete="current-password" required minlength="12" placeholder="Пароль от резервной копии"><button type="button" data-toggle-password="restorePassword" aria-label="Показать пароль">◉</button></div>
         <button class="primary-button" type="submit" id="restoreButton">Восстановить и открыть →</button>

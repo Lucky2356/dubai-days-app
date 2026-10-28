@@ -96,3 +96,22 @@ input[type=file]{font-size:12px;padding:10px}
 @media(max-width:370px){.running-header{padding:5px 8px;gap:7px}.running-header strong{font-size:12px}.running-header button{padding:7px 6px;font-size:10px}}
 @media(max-width:540px){.map-dialog{width:calc(100vw - 14px);max-height:calc(100dvh - 14px);padding:18px}.vault-dialog-header{top:-18px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+.vault-card>p{font-size:14px;line-height:1.65}
+.vault-card label{font-size:14px}
+.vault-card input[type=file]{font-size:14px}
+.vault-card :is(.primary-button,.foot-actions button){font-size:14px}
+.vault-card .foot-actions button{min-height:42px;text-align:left}
+.vault-card .status{font-size:13px}
+.info p{font-size:13px}
+.vault-help{margin:-1px 0 4px;padding:7px 11px;border:1px solid #e0ebe2;border-radius:9px;background:#f8fbf8}
+.vault-help summary{font-size:13px;font-weight:750;cursor:pointer;color:#23634b;line-height:1.5}
+.vault-help p,.vault-card .vault-form-hint{font-size:13px;line-height:1.55;color:#4b7060;margin:9px 0}
+.map-dialog :is(.map-dialog-note,.vault-muted,.vault-official,.vault-checks li){font-size:13px}
+.map-dialog :is(.vault-backup button,.map-dialog-actions button){min-height:44px;font-size:13px}
+@media(max-width:820px){
+  .vault-layout .lede{font-size:14px}
+  .vault-layout .trust span{font-size:12px}
+  .running-header{height:57px}
+  .running-header button{min-height:44px;font-size:13px}
+}
+@media(max-width:370px){.running-header button{font-size:12px}}
