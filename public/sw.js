@@ -1,6 +1,6 @@
 // Cache only the generic unlock screen. Never cache a user's imported bundle.
-const CACHE='dubai-days-private-shell-v21';
-const SHELL=['./','./index.html','./vault.css?v=21','./vault.js?v=21','./vault-crypto.js?v=21','./vault-pwa.js?v=21','./vault-trust.js?v=21','./vault-extras.js?v=21','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const CACHE='dubai-days-private-shell-v22';
+const SHELL=['./','./index.html','./vault.css?v=22','./vault.js?v=22','./vault-crypto.js?v=22','./vault-pwa.js?v=22','./vault-trust.js?v=22','./vault-extras.js?v=22','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 function isShellResponse(response,requestUrl){
   return response.ok&&!response.redirected&&new URL(response.url).origin===self.location.origin&&new URL(response.url).pathname===new URL(requestUrl).pathname;
 }

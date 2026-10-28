@@ -42,6 +42,7 @@ try{
     const page=await context.newPage();
     await page.goto(url);
     await page.locator('#importFile').waitFor({state:'attached'});
+    await page.locator('#importForm').waitFor({state:'visible',timeout:15000});
     const metrics=await page.evaluate(()=>({body:document.body.scrollWidth,viewport:document.documentElement.clientWidth}));
     assert.ok(metrics.body<=metrics.viewport+1,`Horizontal overflow at ${width}px: ${JSON.stringify(metrics)}`);
     assert.equal(await page.locator('#importForm').isVisible(),true,`First-run form hidden at ${width}px`);
@@ -121,8 +122,8 @@ try{
         // Inspector, including service-worker responses. Check cache integrity
         // here; offline navigation itself remains an explicitly unverified case.
         const cached=await page.evaluate(async()=>{
-          const cache=await caches.open('dubai-days-private-shell-v21');
-          const files=['./','./vault.js?v=21','./vault-crypto.js?v=21','./vault-pwa.js?v=21','./vault-trust.js?v=21','./vault-extras.js?v=21'];
+          const cache=await caches.open('dubai-days-private-shell-v22');
+          const files=['./','./vault.js?v=22','./vault-crypto.js?v=22','./vault-pwa.js?v=22','./vault-trust.js?v=22','./vault-extras.js?v=22'];
           return Promise.all(files.map(async file=>Boolean(await cache.match(new URL(file,location.href)))));
         });
         assert.deepEqual(cached,[true,true,true,true,true,true]);

@@ -36,13 +36,13 @@ test('mobile, keyboard and reduced-motion accommodations are present',()=>{
 
 test('PWA precaches the same current version and every imported module',()=>{
   for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js','vault-trust.js','vault-extras.js']){
-    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=21'));
+    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=22'));
   }
-  assert.match(html,/vault\.js\?v=21/);
-  assert.match(js,/vault-crypto\.js\?v=21/);
-  assert.match(js,/vault-pwa\.js\?v=21/);
-  assert.match(js,/vault-trust\.js\?v=21/);
-  assert.match(js,/vault-extras\.js\?v=21/);
+  assert.match(html,/vault\.js\?v=22/);
+  assert.match(js,/vault-crypto\.js\?v=22/);
+  assert.match(js,/vault-pwa\.js\?v=22/);
+  assert.match(js,/vault-trust\.js\?v=22/);
+  assert.match(js,/vault-extras\.js\?v=22/);
 });
 
 test('private iframe uses an opaque origin instead of same-origin privileges',()=>{
@@ -63,6 +63,9 @@ test('quick itinerary and emergency actions are accessible and offline-capable',
 test('seven additional travel tools have accessible controls',()=>{
   for(const id of ['travelExtrasOpen','travelExtrasDialog','taxiCardOpen','extrasMode','extrasChecklist','extrasPlanb','extrasSearch','extrasDiary','extrasTaxi','extrasShare','extrasDiarySave','extrasShareBackup'])assert.match(html,new RegExp(`id="${id}"`));
   assert.match(worker,/vault-extras\.js/);
+  // Encrypted save snapshots must explicitly include newly introduced data.
+  assert.match(js,/travelExtras:session\.travelExtras\|\|null/);
+  assert.match(js,/lastBackupVerifiedAt:session\.lastBackupVerifiedAt\|\|''/);
 });
 
 test('first-run file selection supports drag and drop without bypassing checks',()=>{

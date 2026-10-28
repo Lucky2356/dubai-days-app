@@ -1,7 +1,7 @@
-import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=21';
-import {initPwaUpdates} from './vault-pwa.js?v=21';
-import {verifyBundleTrust} from './vault-trust.js?v=21';
-import {initTravelExtras} from './vault-extras.js?v=21';
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=22';
+import {initPwaUpdates} from './vault-pwa.js?v=22';
+import {verifyBundleTrust} from './vault-trust.js?v=22';
+import {initTravelExtras} from './vault-extras.js?v=22';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -202,7 +202,7 @@ function schedulePersist(){
 }
 function enqueuePersist(){
   if(!session||!sessionKey||!encryptedRecord)return persistQueue;
-  const snapshot={bundle:session.bundle,storage:{...session.storage},tickets:{...(session.tickets||{})},maptilerKey:session.maptilerKey||'',lastBackupAt:session.lastBackupAt||'',lastBackupPromptAt:session.lastBackupPromptAt||''};
+  const snapshot={bundle:session.bundle,storage:{...session.storage},tickets:{...(session.tickets||{})},maptilerKey:session.maptilerKey||'',lastBackupAt:session.lastBackupAt||'',lastBackupVerifiedAt:session.lastBackupVerifiedAt||'',lastBackupPromptAt:session.lastBackupPromptAt||'',travelExtras:session.travelExtras||null};
   const secret=sessionKey,salt=unbase64(encryptedRecord.salt);
   persistQueue=persistQueue.then(async()=>{
     const update=await encryptValue(snapshot,secret,salt);
@@ -448,7 +448,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v21')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v22')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
