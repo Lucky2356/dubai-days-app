@@ -8,10 +8,10 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=8">
+  <link rel="stylesheet" href="./vault.css?v=9">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="./vault.js?v=8"></script>
+  <script type="module" src="./vault.js?v=9"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -32,8 +32,8 @@
       </form>
       <form id="importForm" hidden>
         <label for="importFile">Ваш маршрут — файл .json</label>
-        <input id="importFile" type="file" accept=".json,application/json" required>
-        <details class="vault-help"><summary>Где взять файл и как открыть сайт?</summary><p>Возьмите личный файл Dubai Days, который вы сохранили отдельно. Это файл маршрута, а не зашифрованная резервная копия. Выберите его здесь один раз и задайте пароль. В дальнейшем на этом устройстве понадобится только пароль.</p><p>Не загружайте JSON из неизвестных источников: файл маршрута содержит исполняемые компоненты приложения.</p></details>
+        <div class="file-picker"><input id="importFile" type="file" accept=".json,application/json" aria-describedby="importFileName"><label class="file-picker-button" for="importFile">Выбрать файл маршрута</label><span id="importFileName" class="file-picker-name" role="status" aria-live="polite">Файл ещё не выбран</span></div>
+        <details class="vault-help"><summary>Где взять файл и как открыть сайт?</summary><p>Скачайте личный JSON-файл Dubai Days по ссылке, которую вы получили при создании маршрута. Выберите его здесь один раз и придумайте пароль. При следующих входах на этом устройстве понадобится только пароль.</p><p>Для восстановления уже сохранённых данных служит отдельная кнопка «Восстановить защищённую копию» ниже. Не используйте JSON из неизвестных источников.</p></details>
         <div class="password-set" id="importNewPasswords">
           <label for="importPassword">Придумайте пароль (не менее 12 символов)</label>
           <div class="password-field"><input id="importPassword" type="password" autocomplete="new-password" required minlength="12" placeholder="Надёжный пароль"><button type="button" data-toggle-password="importPassword" aria-label="Показать пароль">◉</button></div>
@@ -48,7 +48,7 @@
       </form>
       <form id="restoreForm" hidden>
         <label for="restoreFile">Зашифрованная резервная копия</label>
-        <input id="restoreFile" type="file" accept=".json,application/json" required>
+        <div class="file-picker"><input id="restoreFile" type="file" accept=".json,application/json" aria-describedby="restoreFileName"><label class="file-picker-button" for="restoreFile">Выбрать защищённую копию</label><span id="restoreFileName" class="file-picker-name" role="status" aria-live="polite">Файл ещё не выбран</span></div>
         <p class="vault-form-hint">Используйте копию, ранее скачанную из «Настройки → Скачать защищённую копию», а не обычный файл маршрута.</p>
         <label for="restorePassword">Пароль от копии</label>
         <div class="password-field"><input id="restorePassword" type="password" autocomplete="current-password" required minlength="12" placeholder="Пароль от резервной копии"><button type="button" data-toggle-password="restorePassword" aria-label="Показать пароль">◉</button></div>
@@ -61,7 +61,7 @@
     <footer>Dubai Days · Личные данные остаются на вашем устройстве</footer>
   </main>
   <section class="running" id="running" hidden aria-label="Личный путеводитель">
-    <div class="running-header"><span><strong>dubai.days</strong><small>Личный путеводитель · разблокировано</small></span><div class="running-actions"><button type="button" id="mapSettings" aria-label="Настройки карты и данных">⚙ Настройки</button><button type="button" id="lockVault">🔒 Закрыть</button></div></div>
+    <div class="running-header"><span><strong>dubai.days</strong><small id="saveState" class="save-state" role="status" aria-live="polite">✓ Сохранено на устройстве</small></span><div class="running-actions"><button type="button" id="mapSettings" aria-label="Настройки карты и данных">⚙ Настройки</button><button type="button" id="lockVault">🔒 Закрыть</button></div></div>
     <div class="save-warning" id="saveWarning" role="alert" hidden>Изменения пока не сохранены. Проверьте свободное место или доступность хранилища. <button type="button" id="retrySave">Повторить</button></div>
     <iframe id="privateFrame" title="Ваш личный путеводитель" referrerpolicy="no-referrer" allow="geolocation" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-modals allow-forms allow-downloads"></iframe>
   </section>
@@ -80,7 +80,7 @@
       <button type="button" id="persistVault">Защитить данные от автоматической очистки</button>
       <button type="button" id="checkVault">✓ Проверить готовность к поездке</button>
       <ul class="vault-checks" id="vaultChecks" aria-live="polite" hidden></ul>
-      <p class="vault-official">Перед поездкой проверьте <a href="https://www.rta.ae/wps/portal/rta/ae/public-transport/journeyplanner" target="_blank" rel="noopener noreferrer">маршруты и водный транспорт на официальном сайте RTA ↗</a>.</p>
+      <p class="vault-official">Перед поездкой посмотрите <a href="https://www.rta.ae/links/marine/rta-abra-routes.pdf" target="_blank" rel="noopener noreferrer">официальную схему маршрутов лодок RTA ↗</a>. Актуальное расписание и тарифы уточните у перевозчика.</p>
     </section>
     <details class="vault-map-details"><summary>Карта · дополнительные настройки</summary>
       <form id="mapSettingsForm">

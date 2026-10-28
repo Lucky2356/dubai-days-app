@@ -57,6 +57,8 @@ input[type=file]{font-size:12px;padding:10px}
 .running-header small{font-size:10px;color:#c1d9cc}
 .running-header button{border:1px solid #a2c4af;border-radius:7px;padding:7px 10px;min-height:39px;background:#fff;color:#1a503b;font-weight:800;font-size:11px}
 .running-actions{display:flex;align-items:center;gap:6px;flex:none}
+.running-actions #mapSettings{position:relative}
+.running-actions #mapSettings.backup-needed::after{content:'';position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:#de6d42;box-shadow:0 0 0 2px #fff}
 .save-warning{padding:9px 16px;background:#fff2e4;color:#883d27;font-size:12px;line-height:1.5}
 .save-warning[hidden]{display:none}
 .save-warning button{border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;padding:3px 7px;margin-left:8px;font-weight:800}
@@ -106,6 +108,15 @@ input[type=file]{font-size:12px;padding:10px}
 .vault-help{margin:-1px 0 4px;padding:7px 11px;border:1px solid #e0ebe2;border-radius:9px;background:#f8fbf8}
 .vault-help summary{font-size:13px;font-weight:750;cursor:pointer;color:#23634b;line-height:1.5}
 .vault-help p,.vault-card .vault-form-hint{font-size:13px;line-height:1.55;color:#4b7060;margin:9px 0}
+.file-picker{display:grid;gap:5px;position:relative}
+.file-picker input[type=file]{position:absolute;width:1px;height:1px;padding:0;margin:0;opacity:0;overflow:hidden;pointer-events:none}
+.file-picker-button{margin:0;display:flex;align-items:center;justify-content:center;min-height:47px;border:1px solid #b8d4c1;border-radius:10px;background:#f1f9f2;color:#185c42;font-size:14px;font-weight:800;cursor:pointer}
+.file-picker:hover .file-picker-button{background:#e5f3e7}
+.file-picker:focus-within .file-picker-button{outline:3px solid #a9d5b9;outline-offset:2px}
+.file-picker-name{font-size:12px;line-height:1.5;color:#537360;overflow-wrap:anywhere}
+.save-state{color:#c8e2d2!important;font-size:12px!important}
+.save-state[data-mode="pending"]{color:#f5dea8!important}
+.save-state[data-mode="error"]{color:#ffcebe!important}
 .map-dialog :is(.map-dialog-note,.vault-muted,.vault-official,.vault-checks li){font-size:13px}
 .map-dialog :is(.vault-backup button,.map-dialog-actions button){min-height:44px;font-size:13px}
 @media(max-width:820px){
@@ -115,3 +126,24 @@ input[type=file]{font-size:12px;padding:10px}
   .running-header button{min-height:44px;font-size:13px}
 }
 @media(max-width:370px){.running-header button{font-size:12px}}
+@media(max-width:820px){
+  /* Put the actual task first on phones; the editorial introduction follows. */
+  .vault-layout{align-content:start;gap:13px}
+  .vault-layout>.brand{order:1}
+  .vault-layout>.vault-card{order:2}
+  .vault-layout>.welcome{order:3;padding:12px 0 3px}
+  .vault-layout>.info{order:4}
+  .vault-layout>footer{order:5}
+  .welcome h1{font-size:clamp(32px,8vw,43px);margin:10px 0 8px;letter-spacing:-1.6px}
+  .welcome .lede{margin:8px 0;font-size:13px;line-height:1.55}
+  .welcome .trust{margin-top:12px}
+  .vault-card{padding:18px}
+  .vault-card>p{margin:12px 0}
+  .running-header .save-state{display:inline;font-size:11px!important;white-space:nowrap}
+}
+@media(max-width:450px){
+  .running-header>span{gap:6px}
+  .running-header strong{font-size:12px}
+  .running-header .save-state{font-size:10px!important;max-width:75px;line-height:1.2;white-space:normal}
+  .running-header button{font-size:12px;padding:6px 7px}
+}

@@ -39,6 +39,18 @@ async function decryptValue(record,key){
   return JSON.parse(decoder.decode(plaintext));
 }
 function status(message,ok=false){const node=$('vaultStatus');node.textContent=message;node.classList.toggle('ok',ok)}
+function setSaveState(message,mode='ok'){
+  const node=$('saveState');if(!node)return;
+  node.textContent=message;node.dataset.mode=mode;
+}
+function refreshBackupReminder(){
+  const button=$('mapSettings');
+  const saved=Date.parse(session?.lastBackupAt||'');
+  const due=!Number.isFinite(saved)||saved>Date.now()||Date.now()-saved>30*86400000;
+  button.classList.toggle('backup-needed',due);
+  button.setAttribute('aria-label',due?'Настройки — требуется свежая защищённая резервная копия':'Настройки карты и данных');
+  button.title=due?'Скачайте свежую защищённую копию':'Настройки и резервная копия';
+}
 function formMode(mode){
   const updating=!!encryptedRecord;
   $('unlockForm').hidden=mode!=='unlock';$('importForm').hidden=mode!=='import';$('restoreForm').hidden=mode!=='restore';
@@ -61,6 +73,14 @@ function validateBundle(data){
   if(data?.format!==FORMAT||!Number.isInteger(data.version)||data.version<48||!data.html?.includes('id="appScreen"')||!Array.isArray(data.data?.trip?.days)||data.data.trip.days.length!==8)throw Error('Это не подходящий файл личного путеводителя.');
   const expected=['content.js','companion.js','travel-logic.js','app.js','route-focus.js','offline-atlas.js','travel-tools.js'];
   if(expected.some(name=>typeof data.scripts?.[name]!=='string')||typeof data.styles?.['styles.css']!=='string'||typeof data.assets?.hero!=='string'||typeof data.assets?.emergencyPdf!=='string')throw Error('В файле отсутствуют компоненты путеводителя.');
+  // Trip text goes through several dynamic templates in legacy bundles.
+  // Fail closed on markup and executable URL schemes in imported data.
+  const pending=[data.data.trip,data.data.geometry];let inspected=0;
+  while(pending.length){
+    const value=pending.pop();if(++inspected>200000)throw Error('Данные маршрута слишком велики.');
+    if(typeof value==='string'&&/[<>]|(?:javascript|vbscript|data:text\/html)\s*:/i.test(value))throw Error('В данных маршрута найден небезопасный HTML или адрес.');
+    if(value&&typeof value==='object')pending.push(...Object.values(value));
+  }
   // Import bundles are executable applications. Reject executable HTML that
   // is absent from the known build layout; never present arbitrary JSON as safe.
   const scripts=[...data.html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
@@ -168,10 +188,12 @@ async function clearLegacy(legacyStorage,legacyTickets){
 function showSaveWarning(error){
   $('running').dataset.saveError=error?'true':'false';
   $('saveWarning').hidden=!error;
+  if(error)setSaveState('! Не сохранено','error');
 }
 function schedulePersist(){
   if(!session||!sessionKey||!encryptedRecord||persistQueued)return;
   persistQueued=true;
+  setSaveState('Сохраняем…','pending');
   // A microtask starts the encrypted write immediately after the current
   // click/input handler, instead of leaving a 150 ms unsaved window.
   queueMicrotask(()=>{if(!persistQueued)return;persistQueued=false;enqueuePersist()});
@@ -182,7 +204,7 @@ function enqueuePersist(){
   const secret=sessionKey,salt=unbase64(encryptedRecord.salt);
   persistQueue=persistQueue.then(async()=>{
     const update=await encryptValue(snapshot,secret,salt);
-    await database('put',update);encryptedRecord=update;lastPersistError=null;showSaveWarning(null);
+    await database('put',update);encryptedRecord=update;lastPersistError=null;showSaveWarning(null);setSaveState('✓ Сохранено');
   }).catch(error=>{lastPersistError=error;console.error('Encrypted save failed',error);showSaveWarning(error)});
   return persistQueue;
 }
@@ -263,6 +285,7 @@ async function lock(){
   $('privateFrame').srcdoc='';$('running').hidden=true;$('vaultGate').hidden=false;
   session=null;sessionKey=null;sessionToken=null;
   $('unlockPassword').value='';$('importPassword').value='';$('importConfirm').value='';$('updatePassword').value='';$('importFile').value='';
+  $('importFileName').textContent='Файл ещё не выбран';
   formMode(encryptedRecord?'unlock':'import');
 }
 function unlockFrame(){
@@ -270,6 +293,8 @@ function unlockFrame(){
   const html=buildPrivateHTML(session.bundle,session.storage,sessionToken,session.maptilerKey||'');
   $('privateFrame').srcdoc=html;
   $('vaultGate').hidden=true;$('running').hidden=false;
+  setSaveState('✓ Сохранено');
+  refreshBackupReminder();
 }
 async function handleUnlock(event){
   event.preventDefault();const pass=$('unlockPassword').value,button=$('unlockButton');
@@ -334,7 +359,7 @@ async function handleRestore(event){
     if(encryptedRecord&&!confirm('Восстановить копию вместо текущего путеводителя на этом устройстве? Текущие данные будут заменены.')){status('Восстановление отменено.');return}
     await flush();await database('put',record);
     encryptedRecord=record;session=restored;sessionKey=key;
-    $('restorePassword').value='';$('restoreFile').value='';
+    $('restorePassword').value='';$('restoreFile').value='';$('restoreFileName').textContent='Файл ещё не выбран';
     unlockFrame();
   }catch(error){status(error?.message||'Восстановление не удалось. Текущие данные не изменены.')}
   finally{button.disabled=false}
@@ -346,11 +371,15 @@ async function exportProtectedBackup(){
   try{
     await flush();
     session.lastBackupAt=new Date().toISOString();schedulePersist();await flush();
+    // Verify the exact ciphertext being offered for download is decryptable.
+    const verified=await decryptValue(encryptedRecord,sessionKey);
+    if(verified?.bundle?.format!==FORMAT||!verified.storage||!verified.tickets)throw Error('Backup verification failed');
     const blob=new Blob([JSON.stringify({...encryptedRecord,exportedAt:session.lastBackupAt})],{type:'application/json'});
     const url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url;link.download='dubai-days-protected-'+new Date().toISOString().slice(0,10)+'.json';
     document.body.append(link);link.click();link.remove();
     setTimeout(()=>URL.revokeObjectURL(url),30000);
+    refreshBackupReminder();
     void refreshVaultHealth();
   }catch{session.lastBackupAt=previousDate;schedulePersist();void flush().catch(()=>{});alert('Не удалось скачать резервную копию. Проверьте, разрешены ли загрузки и доступны ли данные браузера.')}
 }
@@ -364,7 +393,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v7')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v9')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -410,7 +439,8 @@ async function handleVaultMessage(event){
   if(m.type==='vault-show-settings'){$('mapSettings').click();return}
   if(m.type==='vault-storage'){
     if(!privateKeyName(m.key)||typeof m.value!=='string'&&m.value!==null)return;
-    if(m.value===null)delete session.storage[m.key];else session.storage[m.key]=m.value.slice(0,2*1024*1024);
+    if(m.value!==null&&m.value.length>2*1024*1024){lastPersistError=Error('Сохранённые данные превышают допустимый размер.');showSaveWarning(lastPersistError);return}
+    if(m.value===null)delete session.storage[m.key];else session.storage[m.key]=m.value;
     schedulePersist();return;
   }
   if(m.type!=='vault-ticket'||!Number.isInteger(m.requestId))return;
@@ -418,7 +448,8 @@ async function handleVaultMessage(event){
   try{
     const list=session.tickets||={};
     if(m.kind==='put'){
-      if(!m.record?.blob||typeof m.record.blob.arrayBuffer!=='function'||m.record.blob.size>6*1024*1024||!m.id)throw Error('Некорректное вложение');
+      if(!m.record?.blob||typeof m.record.blob.arrayBuffer!=='function'||m.record.blob.size>6*1024*1024||typeof m.id!=='string'||!m.id||m.id.length>160)throw Error('Некорректное вложение');
+      if(!list[m.id]&&Object.keys(list).length>=150)throw Error('Достигнут лимит сохранённых билетов. Скачайте резервную копию.');
       list[m.id]={id:m.id,name:String(m.record.name||'Билет').slice(0,120),type:m.record.type,body:base64(new Uint8Array(await m.record.blob.arrayBuffer())),savedAt:m.record.savedAt};
       schedulePersist();await flush();
     }else if(m.kind==='delete'){delete list[m.id];schedulePersist();await flush()}
@@ -433,6 +464,12 @@ window.addEventListener('message',handleVaultMessage);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void flush().catch(()=>{})});
 window.addEventListener('pagehide',()=>{void flush().catch(()=>{})});
 document.querySelectorAll('[data-toggle-password]').forEach(button=>button.addEventListener('click',()=>{const input=$(button.dataset.togglePassword);input.type=input.type==='password'?'text':'password';button.setAttribute('aria-label',input.type==='password'?'Показать пароль':'Скрыть пароль')}));
+for(const [inputId,labelId] of [['importFile','importFileName'],['restoreFile','restoreFileName']]){
+  $(inputId).addEventListener('change',()=>{
+    const file=$(inputId).files?.[0];
+    $(labelId).textContent=file?file.name:'Файл ещё не выбран';
+  });
+}
 $('unlockForm').addEventListener('submit',handleUnlock);
 $('importForm').addEventListener('submit',handleImport);
 $('restoreForm').addEventListener('submit',handleRestore);
