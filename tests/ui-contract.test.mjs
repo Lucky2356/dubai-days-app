@@ -36,13 +36,13 @@ test('mobile, keyboard and reduced-motion accommodations are present',()=>{
 
 test('PWA precaches the same current version and every imported module',()=>{
   for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js','vault-trust.js','vault-extras.js']){
-    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=22'));
+    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=23'));
   }
-  assert.match(html,/vault\.js\?v=22/);
-  assert.match(js,/vault-crypto\.js\?v=22/);
-  assert.match(js,/vault-pwa\.js\?v=22/);
-  assert.match(js,/vault-trust\.js\?v=22/);
-  assert.match(js,/vault-extras\.js\?v=22/);
+  assert.match(html,/vault\.js\?v=23/);
+  assert.match(js,/vault-crypto\.js\?v=23/);
+  assert.match(js,/vault-pwa\.js\?v=23/);
+  assert.match(js,/vault-trust\.js\?v=23/);
+  assert.match(js,/vault-extras\.js\?v=23/);
 });
 
 test('private iframe uses an opaque origin instead of same-origin privileges',()=>{

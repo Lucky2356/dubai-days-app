@@ -8,11 +8,11 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=22">
+  <link rel="stylesheet" href="./vault.css?v=23">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"></noscript>
-  <script type="module" src="./vault.js?v=22"></script>
+  <script type="module" src="./vault.js?v=23"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -160,10 +160,10 @@
     <section id="extrasSearch" class="extras-panel" hidden aria-label="Поиск по поездке">
       <label for="extrasQuery">Место, день, билет или заметка</label><input id="extrasQuery" type="search" autocomplete="off" placeholder="Например, Лувр или метро">
       <div id="extrasSearchResults" class="extras-results" role="status" aria-live="polite"></div>
-      <article id="extrasPlaceCard" class="trip-quick-card" hidden><small id="extrasPlaceTime"></small><h3 id="extrasPlaceTitle"></h3><p id="extrasPlaceHow"></p><a id="extrasPlaceMap" target="_blank" rel="noopener noreferrer" hidden>Открыть карту ↗</a></article>
+      <article id="extrasPlaceCard" class="trip-quick-card" hidden><small id="extrasPlaceTime"></small><h3 id="extrasPlaceTitle"></h3><p id="extrasPlaceHow"></p><a id="extrasPlaceMap" target="_blank" rel="noopener noreferrer" hidden>Открыть карту ↗</a><button type="button" id="extrasTicketOpen" class="quick-primary" hidden>Открыть или скачать билет</button><p id="extrasTicketStatus" role="status" aria-live="polite"></p></article>
     </section>
     <section id="extrasDiary" class="extras-panel" hidden aria-label="Личные заметки">
-      <p>Ваш дневник хранится в той же зашифрованной копии, что и маршрут. Фотографии пока не добавляются, чтобы не переполнить браузер.</p>
+      <p>Ваш дневник автоматически сохраняется в той же зашифрованной копии, что и маршрут. Дождитесь индикатора «Сохранено» перед закрытием вкладки. Фотографии пока не добавляются, чтобы не переполнить браузер.</p>
       <label for="extrasDiaryText">Что запомнилось сегодня?</label><textarea id="extrasDiaryText" maxlength="2500" rows="7" placeholder="Впечатления, полезные советы, что стоит повторить…"></textarea>
       <button type="button" id="extrasDiarySave" class="quick-primary">Сохранить заметку</button><p id="extrasDiaryStatus" role="status" aria-live="polite"></p>
     </section>

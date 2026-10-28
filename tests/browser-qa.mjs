@@ -38,7 +38,7 @@ let browser;
 try{
   browser=await browserTypes[engine].launch({headless:true,...(engine==='chromium'?{args:['--no-sandbox']}:{})});
   for(const width of [320,375,390,768,1280]){
-    const context=await browser.newContext({viewport:{width,height:820},reducedMotion:'reduce'});
+    const context=await browser.newContext({viewport:{width,height:820},reducedMotion:'reduce',acceptDownloads:true});
     const page=await context.newPage();
     await page.goto(url);
     await page.locator('#importFile').waitFor({state:'attached'});
@@ -76,7 +76,9 @@ try{
       await page.locator('#extrasChecklistItems input').first().check();
       await page.locator('#extrasMode').selectOption('diary');
       await page.locator('#extrasDiaryText').fill('Тестовая заметка Dubai Days, данные не настоящие');
-      await page.locator('#extrasDiarySave').click();
+      await page.locator('#extrasMode').selectOption('checklist');
+      await page.locator('#extrasMode').selectOption('diary');
+      assert.equal(await page.locator('#extrasDiaryText').inputValue(),'Тестовая заметка Dubai Days, данные не настоящие','Auto-save preserves drafts across section changes');
       await page.locator('#extrasMode').selectOption('planb');
       await page.locator('#extrasDelay').selectOption('90');
       await page.locator('#extrasSavePlan').click();
@@ -84,6 +86,14 @@ try{
       await page.locator('#extrasMode').selectOption('search');
       await page.locator('#extrasQuery').fill('test-1');
       await page.locator('#extrasSearchResults button').first().waitFor({state:'visible'});
+      await frame.locator('#appScreen').evaluate(async()=>{
+        await window.__vaultTicketOp('put','qa-ticket',{blob:new Blob(['test non-executable ticket'],{type:'text/plain'}),name:'qa-search-ticket.txt',type:'text/plain',savedAt:new Date().toISOString()});
+      });
+      await page.locator('#extrasQuery').fill('qa-search-ticket');
+      await page.locator('#extrasSearchResults button').first().click();
+      assert.equal(await page.locator('#extrasTicketOpen').isVisible(),true);
+      const [ticketDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#extrasTicketOpen').click()]);
+      assert.equal(ticketDownload.suggestedFilename(),'qa-search-ticket.txt');
       await page.locator('#extrasMode').selectOption('taxi');
       await page.locator('#extrasTaxiEnglish').waitFor({state:'visible'});
       await page.locator('#extrasMode').selectOption('share');
@@ -122,8 +132,8 @@ try{
         // Inspector, including service-worker responses. Check cache integrity
         // here; offline navigation itself remains an explicitly unverified case.
         const cached=await page.evaluate(async()=>{
-          const cache=await caches.open('dubai-days-private-shell-v22');
-          const files=['./','./vault.js?v=22','./vault-crypto.js?v=22','./vault-pwa.js?v=22','./vault-trust.js?v=22','./vault-extras.js?v=22'];
+          const cache=await caches.open('dubai-days-private-shell-v23');
+          const files=['./','./vault.js?v=23','./vault-crypto.js?v=23','./vault-pwa.js?v=23','./vault-trust.js?v=23','./vault-extras.js?v=23'];
           return Promise.all(files.map(async file=>Boolean(await cache.match(new URL(file,location.href)))));
         });
         assert.deepEqual(cached,[true,true,true,true,true,true]);

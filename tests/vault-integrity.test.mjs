@@ -8,7 +8,7 @@ import {keyFromPassword,encryptValue,decryptValue,unbase64} from '../public/vaul
 const source=readFileSync(new URL('../public/vault.js',import.meta.url),'utf8');
 const context={crypto:webcrypto,TextEncoder,TextDecoder,Uint8Array,btoa,atob,console};
 vm.createContext(context);
-vm.runInContext(source.slice(source.indexOf('function sameStages('),source.indexOf('function validateProtectedRecord('))+'\nthis.mappingApi={stageMapping,remapStageStorage};',context);
+vm.runInContext(source.slice(source.indexOf('function sameStages('),source.indexOf('function validateProtectedRecord('))+'\nthis.mappingApi={stageMapping,remapStageStorage,remapTravelExtras};',context);
 
 test('AES-GCM round-trip preserves notes and tickets without plaintext leaks',async()=>{
   const salt=webcrypto.getRandomValues(new Uint8Array(16));
@@ -41,6 +41,16 @@ test('stage reorder preserves completion and progress',()=>{
   const value=JSON.parse(context.mappingApi.remapStageStorage(storage,mapping)['dubai-days-personal-v1']);
   assert.deepEqual(value.completed,{'0':[1]});
   assert.deepEqual(value.progress,{'0':0});
+  const extras={diary:{0:'Заметка'},checks:{0:['water']},plans:{0:{delay:60,skip:[0],savedAt:'2026-10-28'}}};
+  const migrated=JSON.parse(JSON.stringify(context.mappingApi.remapTravelExtras(extras,mapping)));
+  assert.deepEqual(migrated.plans[0].skip,[1]);
+  assert.deepEqual(migrated.diary,extras.diary);
+  assert.deepEqual(migrated.checks,extras.checks);
+  assert.deepEqual(extras.plans[0].skip,[0],'original encrypted session is not mutated');
+});
+
+test('updating refuses to silently lose invalid alternative plans',()=>{
+  assert.throws(()=>context.mappingApi.remapTravelExtras({plans:{0:{skip:[99]}}},[[1,0]]),/неизвестный этап/);
 });
 
 test('incompatible itinerary changes are rejected',()=>{

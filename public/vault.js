@@ -1,7 +1,7 @@
-import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=22';
-import {initPwaUpdates} from './vault-pwa.js?v=22';
-import {verifyBundleTrust} from './vault-trust.js?v=22';
-import {initTravelExtras} from './vault-extras.js?v=22';
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=23';
+import {initPwaUpdates} from './vault-pwa.js?v=23';
+import {verifyBundleTrust} from './vault-trust.js?v=23';
+import {initTravelExtras,quickStagesForDay} from './vault-extras.js?v=23';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -146,6 +146,24 @@ function remapStageStorage(source,mapping){
     }
   }catch{throw Error('Не удалось безопасно перенести сохранённый прогресс. Скачайте защищённую копию перед обновлением.')}
   return storage;
+}
+function remapTravelExtras(extras,mapping){
+  if(extras==null)return extras;
+  if(typeof extras!=='object'||Array.isArray(extras))throw Error('Не удалось перенести дополнительные данные путешествия. Обновление отменено.');
+  const plans=extras.plans||{};
+  if(typeof plans!=='object'||Array.isArray(plans))throw Error('Неверный формат альтернативных планов. Обновление отменено.');
+  const migrated={};
+  for(const [day,plan] of Object.entries(plans)){
+    if(!plan||typeof plan!=='object'||!Array.isArray(plan.skip))throw Error('Не удалось перенести пропуски этапов. Обновление отменено.');
+    const indexes=mapping[Number(day)];
+    if(!indexes)throw Error('В сохранённом плане обнаружен неизвестный день. Обновление отменено.');
+    migrated[day]={...plan,skip:plan.skip.map(value=>{
+      const index=Number(value),next=indexes[index];
+      if(!Number.isInteger(index)||!Number.isInteger(next))throw Error('В сохранённом плане есть неизвестный этап. Обновление отменено.');
+      return next;
+    })};
+  }
+  return {...extras,plans:migrated};
 }
 function validateProtectedRecord(value){
   if(value?.format!=='dubai-days-locked-v1'||value.iterations!==ITERATIONS||
@@ -350,7 +368,7 @@ async function handleImport(event){
       catch{throw Error('Текущий пароль неверный. Сохранённый путеводитель не изменён.')}
       validateBundle(oldSession.bundle);await verifyBundleTrust(oldSession.bundle);
       const mapping=stageMapping(oldSession.bundle,bundle);
-      nextSession={...oldSession,bundle,storage:remapStageStorage(oldSession.storage,mapping)};
+      nextSession={...oldSession,bundle,storage:remapStageStorage(oldSession.storage,mapping),travelExtras:remapTravelExtras(oldSession.travelExtras,mapping)};
     }else{
       legacyStorage=findLegacyStorage();legacyTickets=await findLegacyTickets();
       nextSession={bundle,storage:legacyStorage,tickets:legacyTickets};
@@ -448,7 +466,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v22')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v23')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -599,18 +617,18 @@ for(const [inputId,labelId,previewId] of [['importFile','importFileName','import
 function quickDays(){return session?.bundle?.data?.trip?.days||[]}
 function quickRender(){
   const days=quickDays(),day=Math.min(days.length-1,Math.max(0,Number($('quickDay').value)||0));
-  const legs=days[day]?.legs||[],step=Math.max(0,Math.min(legs.length-1,Number($('quickStep').value)||0));
+  const stages=quickStagesForDay(days[day]),step=Math.max(0,Math.min(stages.length-1,Number($('quickStep').value)||0));
   $('quickStep').replaceChildren();
-  legs.forEach((leg,index)=>{const option=new Option(`${index+1}. ${leg.title||leg.to||'Этап'}`,String(index));$('quickStep').add(option)});
-  if(legs.length)$('quickStep').value=String(step);
-  const leg=legs[step];
-  $('quickDestination').textContent=leg?.title||'Свободное время';
-  $('quickTime').textContent=(days[day]?.date||'')+' · '+(days[day]?.stageTimes?.[step]||'Время уточняйте по плану');
-  $('quickHow').textContent=leg?.how||'На этот день больше нет запланированных этапов.';
+  stages.forEach((stage,index)=>{const option=new Option(`${index+1}. ${stage.title}`,String(index));$('quickStep').add(option)});
+  if(stages.length)$('quickStep').value=String(step);
+  const stage=stages[step];
+  $('quickDestination').textContent=stage?.title||'Свободное время';
+  $('quickTime').textContent=(days[day]?.date||'')+' · '+(stage?.time||'Время уточняйте по плану');
+  $('quickHow').textContent=stage?.how||'На этот день больше нет запланированных этапов.';
   $('quickPrev').disabled=day===0&&step===0;
-  $('quickNext').disabled=day===days.length-1&&step===legs.length-1;
+  $('quickNext').disabled=day===days.length-1&&step===stages.length-1;
   const list=$('quickDayList');list.replaceChildren();
-  legs.forEach((item,index)=>{const li=document.createElement('li');li.textContent=`${days[day].stageTimes?.[index]||'—'} · ${item.title||item.to||'Этап'}`;if(index===step)li.classList.add('current');list.append(li)});
+  stages.forEach((item,index)=>{const li=document.createElement('li');li.textContent=`${item.time||'—'} · ${item.title}`;if(index===step)li.classList.add('current');list.append(li)});
 }
 function quickSelect(day,step){
   const days=quickDays();if(!days.length)return;
@@ -632,8 +650,8 @@ $('quickDay').addEventListener('change',()=>quickSelect(Number($('quickDay').val
 $('quickStep').addEventListener('change',()=>{const value=$('quickStep').value;quickRender();$('quickStep').value=value});
 for(const [id,direction] of [['quickPrev',-1],['quickNext',1]])$(id).addEventListener('click',()=>{
   const days=quickDays(),day=Number($('quickDay').value),step=Number($('quickStep').value)+direction;
-  if(step<0)quickSelect(day-1,days[day-1]?.legs?.length-1||0);
-  else if(step>=(days[day]?.legs?.length||0))quickSelect(day+1,0);
+  if(step<0)quickSelect(day-1,quickStagesForDay(days[day-1]).length-1||0);
+  else if(step>=quickStagesForDay(days[day]).length)quickSelect(day+1,0);
   else quickSelect(day,step);
 });
 $('quickTripClose').addEventListener('click',()=>$('quickTripDialog').close());
@@ -710,7 +728,25 @@ $('mapSettingsForm').addEventListener('submit',async event=>{
   }finally{button.disabled=false}
 });
 $('retrySave').addEventListener('click',()=>{schedulePersist();flush().catch(()=>{})});
-travelExtrasView=initTravelExtras({getSession:()=>session,save:()=>schedulePersist(),downloadBackup:exportProtectedBackup});
+function openProtectedTicket(id){
+  const item=session?.tickets&&Object.hasOwn(session.tickets,id)?session.tickets[id]:null;
+  if(!item||typeof item.body!=='string')return false;
+  const bytes=unbase64(item.body),type=String(item.type||'').toLowerCase();
+  const pdf=type==='application/pdf'&&bytes.length>=5&&String.fromCharCode(...bytes.slice(0,5))==='%PDF-';
+  const png=type==='image/png'&&bytes.length>=8&&[137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v);
+  const jpeg=type==='image/jpeg'&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
+  const webp=type==='image/webp'&&bytes.length>=12&&String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP';
+  const preview=pdf||png||jpeg||webp;
+  // Unknown types are downloaded, never executed as HTML on the vault origin.
+  const url=URL.createObjectURL(new Blob([bytes],{type:preview?type:'application/octet-stream'}));
+  const link=document.createElement('a');link.href=url;
+  if(preview){link.target='_blank';link.rel='noopener noreferrer'}
+  else link.download=String(item.name||'Билет').replace(/[\\/\x00-\x1f]/g,'_').slice(0,120);
+  document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  return true;
+}
+travelExtrasView=initTravelExtras({getSession:()=>session,save:()=>schedulePersist(),downloadBackup:exportProtectedBackup,openTicket:openProtectedTicket});
 try{
   if(!crypto?.subtle||!window.indexedDB)throw Error('Для защиты нужен современный браузер и HTTPS.');
   encryptedRecord=await database('get');
