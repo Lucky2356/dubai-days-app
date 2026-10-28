@@ -1,0 +1,11 @@
+{
+  "id":"./",
+  "name":"Dubai Days · личный путеводитель",
+  "short_name":"Dubai Days",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#f5f8f4",
+  "theme_color":"#185642",
+  "description":"Зашифрованный локальный путеводитель"
+}
