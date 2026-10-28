@@ -5,6 +5,7 @@ body{margin:0;min-height:100vh}
 button,input{font:inherit}
 button{cursor:pointer}
 .vault-layout{min-height:100vh;max-width:1160px;margin:0 auto;padding:30px clamp(18px,5vw,64px) 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,425px);gap:26px 62px;align-content:center}
+.vault-layout[hidden]{display:none}
 .brand{grid-column:1/-1;display:flex;align-items:center;gap:11px}
 .brand-logo{display:grid;place-items:center;width:46px;height:46px;border-radius:15px;background:#185642;color:#fff;font:bold 26px Georgia,serif;position:relative}
 .brand-logo span{position:absolute;right:5px;top:0;font:12px sans-serif;color:#bce6bc}
