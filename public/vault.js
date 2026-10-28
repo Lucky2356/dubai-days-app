@@ -440,7 +440,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v12')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v13')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){

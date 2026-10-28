@@ -1,6 +1,6 @@
 // Cache only the generic unlock screen. Never cache a user's imported bundle.
-const CACHE='dubai-days-private-shell-v12';
-const SHELL=['./','./index.html','./vault.css?v=12','./vault.js?v=12','./manifest.webmanifest','./icon.svg'];
+const CACHE='dubai-days-private-shell-v13';
+const SHELL=['./','./index.html','./vault.css?v=13','./vault.js?v=13','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 function isShellResponse(response,requestUrl){
   return response.ok&&!response.redirected&&new URL(response.url).origin===self.location.origin&&new URL(response.url).pathname===new URL(requestUrl).pathname;
 }
@@ -19,7 +19,7 @@ self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET'||new URL(event.request.url).origin!==self.location.origin)return;
   const url=new URL(event.request.url),scope=new URL(self.registration.scope);
-  if(!url.pathname.startsWith(scope.pathname)||!['/','/index.html','/vault.css','/vault.js','/manifest.webmanifest','/icon.svg'].some(suffix=>url.pathname===scope.pathname.replace(/\/$/,'')+suffix))return;
+  if(!url.pathname.startsWith(scope.pathname)||!['/','/index.html','/vault.css','/vault.js','/manifest.webmanifest','/icon.svg','/icon-192.png','/icon-512.png'].some(suffix=>url.pathname===scope.pathname.replace(/\/$/,'')+suffix))return;
   event.respondWith(fetch(event.request).then(response=>{
     if(isShellResponse(response,event.request.url)){
       const copy=response.clone();

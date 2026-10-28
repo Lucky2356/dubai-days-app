@@ -36,6 +36,7 @@ jobs:
           node --check public/sw.js
           node tests/pwa-update.test.mjs
           node tests/vault-integrity.test.mjs
+          node tests/integration.test.mjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
