@@ -15,7 +15,7 @@ function syntheticBundle(){return {
 }}
 function harness(){
   const controls=Object.fromEntries(['importPassword','importConfirm','updatePassword','importFile','importButton','trustedImport','restoreFile','restorePassword','restoreButton','restoreFileName'].map(id=>[id,{value:'',disabled:false,checked:false,files:[]}]));
-  let stored=null,failWrites=false,frameOpened=0,statusMessage='';
+  let stored=null,failWrites=false,rejectTrust=false,frameOpened=0,statusMessage='';
   const context={
     FORMAT:'dubai-days-private-import-v1',PASSWORD_MIN:12,MAX_RESTORE_BYTES:128*1024*1024,ITERATIONS:310000,
     crypto:webcrypto,Blob,Uint8Array,console,keyFromPassword,encryptValue,decryptValue,unbase64,
@@ -23,6 +23,8 @@ function harness(){
     database:async(op,value)=>{if(op==='put'){if(failWrites)throw Error('Disk full');stored=value;return}return stored},
     findLegacyStorage:()=>({}),findLegacyTickets:async()=>({}),clearLegacy:async()=>{},
     buildPrivateHTML:()=>'<html></html>',unlockFrame:()=>{frameOpened++},confirm:()=>true,
+    // Trust verification itself is exercised by bundle-trust.test.mjs.
+    verifyBundleTrust:async()=>{if(rejectTrust)throw Error('Цифровая подпись маршрута неверна.');return 'signed'},
   };
   vm.createContext(context);
   vm.runInContext('let encryptedRecord=null,session=null,sessionKey=null;',context);
@@ -35,7 +37,7 @@ function harness(){
   vm.runInContext('this.state=()=>({encryptedRecord,session,sessionKey});this.handleImport=handleImport;this.handleRestore=handleRestore;',context);
   const event={preventDefault(){}};
   const pick=(id,data)=>{const json=JSON.stringify(data);controls[id].files=[{size:Buffer.byteLength(json),text:async()=>json}]};
-  return {context,controls,event,pick,get stored(){return stored},get status(){return statusMessage},get frameOpened(){return frameOpened},failWrites:value=>{failWrites=value}};
+  return {context,controls,event,pick,get stored(){return stored},get status(){return statusMessage},get frameOpened(){return frameOpened},failWrites:value=>{failWrites=value},rejectTrust:value=>{rejectTrust=value}};
 }
 
 test('import → save → reopen keeps itinerary notes and PDF ticket',async()=>{
@@ -76,4 +78,14 @@ test('failed import write never replaces previous encrypted record',async()=>{
   assert.equal(h.stored,first);
   assert.equal(h.context.state().encryptedRecord,first);
   assert.match(h.status,/Disk full/);
+});
+
+test('untrusted import never reaches encryption or replaces local data',async()=>{
+  const h=harness();h.rejectTrust(true);
+  h.controls.importPassword.value='safe unique password 123';h.controls.importConfirm.value='safe unique password 123';h.controls.trustedImport.checked=true;
+  h.pick('importFile',syntheticBundle());
+  await h.context.handleImport(h.event);
+  assert.equal(h.stored,null);
+  assert.equal(h.frameOpened,0);
+  assert.match(h.status,/подпись/);
 });

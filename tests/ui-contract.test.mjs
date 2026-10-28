@@ -35,12 +35,21 @@ test('mobile, keyboard and reduced-motion accommodations are present',()=>{
 });
 
 test('PWA precaches the same current version and every imported module',()=>{
-  for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js']){
-    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=18'));
+  for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js','vault-trust.js']){
+    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=19'));
   }
-  assert.match(html,/vault\.js\?v=18/);
-  assert.match(js,/vault-crypto\.js\?v=18/);
-  assert.match(js,/vault-pwa\.js\?v=18/);
+  assert.match(html,/vault\.js\?v=19/);
+  assert.match(js,/vault-crypto\.js\?v=19/);
+  assert.match(js,/vault-pwa\.js\?v=19/);
+  assert.match(js,/vault-trust\.js\?v=19/);
+});
+
+test('private iframe uses an opaque origin instead of same-origin privileges',()=>{
+  const tag=html.match(/<iframe\b[^>]*id="privateFrame"[^>]*>/)?.[0];
+  assert.ok(tag);
+  assert.match(tag,/sandbox="[^"]*allow-scripts/);
+  assert.doesNotMatch(tag,/allow-same-origin/);
+  assert.match(js,/event\.origin!=='null'/);
 });
 
 test('first-run file selection supports drag and drop without bypassing checks',()=>{

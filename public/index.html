@@ -8,11 +8,11 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=18">
+  <link rel="stylesheet" href="./vault.css?v=19">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"></noscript>
-  <script type="module" src="./vault.js?v=18"></script>
+  <script type="module" src="./vault.js?v=19"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -52,7 +52,7 @@
           <label for="updatePassword">Текущий пароль от путеводителя</label>
           <div class="password-field"><input id="updatePassword" type="password" autocomplete="current-password" minlength="12" placeholder="Ваш прежний пароль"><button type="button" data-toggle-password="updatePassword" aria-label="Показать пароль">◉</button></div>
         </div>
-        <label class="trust-file"><input id="trustedImport" type="checkbox" required><span>Я доверяю источнику файла Dubai Days. Маршрут содержит исполняемые компоненты приложения.</span></label>
+        <label class="trust-file"><input id="trustedImport" type="checkbox" required><span>Я выбрал официальный файл Dubai Days. Приложение проверит его подлинность перед открытием.</span></label>
         <button class="primary-button" type="submit" id="importButton">Зашифровать и открыть →</button>
       </form>
       <form id="restoreForm" hidden>
@@ -74,7 +74,7 @@
     <div class="running-header"><span><strong>dubai.days</strong><small id="saveState" class="save-state" role="status" aria-live="polite">✓ Сохранено на устройстве</small></span><div class="running-actions"><button type="button" id="mapSettings" aria-label="Настройки карты и данных">⚙ Настройки</button><button type="button" id="lockVault">🔒 Закрыть</button></div></div>
     <div class="save-warning" id="saveWarning" role="alert" hidden>Изменения пока не сохранены. Проверьте свободное место или доступность хранилища. <button type="button" id="retrySave">Повторить</button></div>
     <div class="backup-prompt" id="backupPrompt" role="status" hidden><span>Рекомендуем сохранить зашифрованную копию маршрута и билетов.</span><div class="backup-prompt-actions"><button type="button" id="backupPromptOpen">Открыть настройки</button><button type="button" id="backupPromptLater">Позже</button></div></div>
-    <iframe id="privateFrame" title="Ваш личный путеводитель" referrerpolicy="no-referrer" allow="geolocation" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-modals allow-forms allow-downloads"></iframe>
+    <iframe id="privateFrame" title="Ваш личный путеводитель" referrerpolicy="no-referrer" allow="geolocation" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals allow-forms allow-downloads"></iframe>
   </section>
   <aside id="updateNotice" class="update-notice" hidden role="status" aria-live="polite">
     <span id="updateText">Доступна новая версия путеводителя.</span>

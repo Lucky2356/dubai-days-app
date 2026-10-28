@@ -47,7 +47,7 @@ function syntheticBundle(){
 }
 
 function backupInspector(){
-  const ctx={FORMAT:'dubai-days-private-import-v1',ITERATIONS:310000,keyFromPassword,decryptValue,unbase64};
+  const ctx={FORMAT:'dubai-days-private-import-v1',ITERATIONS:310000,keyFromPassword,decryptValue,unbase64,verifyBundleTrust:async()=> 'signed'};
   vm.createContext(ctx);
   vm.runInContext(source.slice(source.indexOf('function validateBundle('),source.indexOf('function sameStages(')),ctx);
   vm.runInContext(source.slice(source.indexOf('function validateProtectedRecord('),source.indexOf('const privateKeyName=')),ctx);

@@ -1,5 +1,6 @@
-import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=18';
-import {initPwaUpdates} from './vault-pwa.js?v=18';
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=19';
+import {initPwaUpdates} from './vault-pwa.js?v=19';
+import {verifyBundleTrust} from './vault-trust.js?v=19';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -57,7 +58,7 @@ function formMode(mode){
   $('accessTitle').textContent=titles[mode]||titles.unlock;
   const explainers={
     unlock:'Введите свой пароль. Маршрут и все изменения уже зашифрованы на этом устройстве.',
-    import:updating?'Выберите обновлённый JSON и введите текущий пароль. Отметки и билеты сохранятся, даже если этапы переставлены внутри дня.':'Выберите личный JSON-файл и задайте пароль. Только зашифрованная копия останется в браузере.',
+    import:updating?'Выберите обновлённый файл Dubai Days и введите текущий пароль. Отметки и билеты сохранятся, даже если этапы переставлены внутри дня.':'Выберите полученный файл Dubai Days. Это нужно сделать один раз — затем для входа понадобится только пароль.',
     restore:'Выберите защищённую резервную копию и введите её пароль. Восстановятся маршрут, отметки, расходы и билеты.'
   };
   $('vaultExplainer').textContent=explainers[mode]||explainers.unlock;
@@ -271,16 +272,20 @@ function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
   const head='<base href="'+rootUrl+'"><style>'+safeInline(styles,'style')+'</style>';
   html=html.replace('</head>',head+'</head>');
   const repairedData=JSON.parse(repairMarineURL(JSON.stringify(bundle.data)));
-  const prelude=`\nwindow.DUBAI_MAP_CONFIG=${jsLiteral({maptilerKey})};\nwindow.__vaultData=${jsLiteral(repairedData)};\nwindow.__vaultStorageData=${jsLiteral(storage)};\nwindow.__vaultToken=${jsLiteral(token)};\nwindow.__vaultLocalStorage={getItem(key){return Object.prototype.hasOwnProperty.call(window.__vaultStorageData,key)?window.__vaultStorageData[key]:null},setItem(key,value){window.__vaultStorageData[key]=String(value);parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:String(value)},'*')},removeItem(key){delete window.__vaultStorageData[key];parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:null},'*')}};\nconst oldFetch=window.fetch.bind(window);window.fetch=(resource,options)=>{const url=typeof resource==='string'?resource:'';if(/(?:^|\\/)data\\/(?:trip|geometry)\\.json(?:[?#]|$)/.test(url)){const key=url.includes('trip.json')?'trip':'geometry';return Promise.resolve(new Response(JSON.stringify(window.__vaultData[key]),{status:200,headers:{'Content-Type':'application/json'}}))}return oldFetch(resource,options)};\nlet vaultSequence=0;const pendingTickets=new Map();window.addEventListener('message',event=>{const m=event.data;if(m?.type!=='vault-ticket-response'||m.token!==window.__vaultToken)return;const request=pendingTickets.get(m.requestId);if(!request)return;pendingTickets.delete(m.requestId);m.error?request.reject(Error(m.error)):request.resolve(m.result)});window.__vaultTicketOp=(kind,id,record)=>new Promise((resolve,reject)=>{const requestId=++vaultSequence;pendingTickets.set(requestId,{resolve,reject});parent.postMessage({type:'vault-ticket',token:window.__vaultToken,requestId,kind,id,record},'*')});\n`;
+  const prelude=`\nwindow.DUBAI_MAP_CONFIG=${jsLiteral({maptilerKey})};\nwindow.__vaultData=${jsLiteral(repairedData)};\nwindow.__vaultStorageData=${jsLiteral(storage)};\nwindow.__vaultToken=${jsLiteral(token)};\nwindow.__vaultLocalStorage={getItem(key){return Object.prototype.hasOwnProperty.call(window.__vaultStorageData,key)?window.__vaultStorageData[key]:null},setItem(key,value){window.__vaultStorageData[key]=String(value);parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:String(value)},'*')},removeItem(key){delete window.__vaultStorageData[key];parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:null},'*')}};\nconst oldFetch=window.fetch.bind(window);window.fetch=(resource,options)=>{const url=typeof resource==='string'?resource:'';if(/(?:^|\\/)data\\/(?:trip|geometry)\\.json(?:[?#]|$)/.test(url)){const key=url.includes('trip.json')?'trip':'geometry';return Promise.resolve(new Response(JSON.stringify(window.__vaultData[key]),{status:200,headers:{'Content-Type':'application/json'}}))}return oldFetch(resource,options)};\nlet vaultSequence=0;const pendingTickets=new Map();window.addEventListener('message',event=>{const m=event.data;if(event.source!==parent||m?.type!=='vault-ticket-response'||m.token!==window.__vaultToken)return;const request=pendingTickets.get(m.requestId);if(!request)return;pendingTickets.delete(m.requestId);m.error?request.reject(Error(m.error)):request.resolve(m.result)});window.__vaultTicketOp=(kind,id,record)=>new Promise((resolve,reject)=>{const requestId=++vaultSequence;pendingTickets.set(requestId,{resolve,reject});parent.postMessage({type:'vault-ticket',token:window.__vaultToken,requestId,kind,id,record},'*')});\n`;
   const content=repairMarineURL(unpackExports(bundle.scripts['content.js']),abraStation);
   const companion=unpackExports(bundle.scripts['companion.js']);
   const logic=unpackExports(bundle.scripts['travel-logic.js']);
-  const protectedPrelude=prelude+`\nwindow.__vaultShowSettings=()=>parent.postMessage({type:'vault-show-settings',token:window.__vaultToken},'*');\ndocument.addEventListener('click',event=>{if(event.target.closest?.('[data-vault-backup]')){event.preventDefault();window.__vaultShowSettings()}},true);\n`;
+  const protectedPrelude=prelude+`\nwindow.__vaultShowSettings=()=>parent.postMessage({type:'vault-show-settings',token:window.__vaultToken},'*');\ndocument.addEventListener('click',event=>{if(event.target.closest?.('[data-vault-backup]')){event.preventDefault();window.__vaultShowSettings()}},true);\nlet geoSequence=0;const pendingGeo=new Map();window.__vaultGetCurrentPosition=(success,error,options)=>{const requestId=++geoSequence;pendingGeo.set(requestId,{success,error});parent.postMessage({type:'vault-geolocation',token:window.__vaultToken,requestId},'*')};window.addEventListener('message',event=>{const m=event.data;if(event.source!==parent||m?.type!=='vault-geolocation-response'||m.token!==window.__vaultToken)return;const request=pendingGeo.get(m.requestId);if(!request)return;pendingGeo.delete(m.requestId);m.errorCode?request.error({code:m.errorCode}):request.success({coords:m.coords})});\n`;
   const define=asScript(protectedPrelude)+asScript('window.__content=(()=>{'+content+';return {FOOD,SHOPS,EXTRAS,BOOKINGS,TIPS,CATEGORIES}})();')+
     asScript('window.__companion=(()=>{'+companion+';return {distanceKm,nearestLeg,dailyBudget,weatherDescription,offlineMapSvg,bookingIcs}})();')+
     asScript('window.__logic=(()=>{'+logic+';return {preferredTripContext,clockWithDay,analyzePlanB,weightedDailyBudget,spendingByDay,calendarForStages,extraRecommendations,validateImportedBundle,TRIP_START_UTC}})();');
   let app=repairMarineURL(bundle.scripts['app.js']).replace(/^import\s+.*?;\s*$/gm,'');
   app=app.replace("if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});",'');
+  // Sandbox has an opaque origin; ask the trusted parent for geolocation only
+  // after the traveller explicitly clicks the existing "Find me" button.
+  app=app.replace(/navigator\.geolocation\.getCurrentPosition\(/g,'window.__vaultGetCurrentPosition(');
+  app=app.replace(/if\(!navigator\.geolocation\)/g,'if(!window.__vaultGetCurrentPosition)');
   app=app.replace('./assets/dubai-emergency-card.pdf','data:application/pdf;base64,'+bundle.assets.emergencyPdf);
   const appHead='const localStorage=window.__vaultLocalStorage;const {FOOD,SHOPS,EXTRAS,BOOKINGS,TIPS,CATEGORIES}=window.__content;const {distanceKm,nearestLeg,dailyBudget,weatherDescription,offlineMapSvg,bookingIcs}=window.__companion;';
   let tools=bundle.scripts['travel-tools.js'].replace(/^import\s+.*?;\s*$/gm,'');
@@ -316,8 +321,8 @@ async function handleUnlock(event){
   try{
     sessionKey=await keyFromPassword(pass,unbase64(encryptedRecord.salt));
     session=await decryptValue(encryptedRecord,sessionKey);
-    validateBundle(session.bundle);unlockFrame();
-  }catch(error){session=null;sessionKey=null;status('Не удалось открыть. Проверьте пароль или состояние хранилища.')}
+    validateBundle(session.bundle);await verifyBundleTrust(session.bundle);unlockFrame();
+  }catch(error){session=null;sessionKey=null;status(/(?:подпись|официальн|пакет)/i.test(error?.message||'')?error.message:'Не удалось открыть. Проверьте пароль или состояние хранилища.')}
   finally{button.disabled=false}
 }
 async function handleImport(event){
@@ -331,6 +336,7 @@ async function handleImport(event){
   try{
     await flush();
     const bundle=validateBundle(JSON.parse(await file.text()));
+    await verifyBundleTrust(bundle);
     const salt=updating?unbase64(encryptedRecord.salt):crypto.getRandomValues(new Uint8Array(16));
     const key=await keyFromPassword(pass,salt);
     let nextSession,legacyStorage={},legacyTickets={};
@@ -338,7 +344,7 @@ async function handleImport(event){
       let oldSession;
       try{oldSession=await decryptValue(encryptedRecord,key)}
       catch{throw Error('Текущий пароль неверный. Сохранённый путеводитель не изменён.')}
-      validateBundle(oldSession.bundle);
+      validateBundle(oldSession.bundle);await verifyBundleTrust(oldSession.bundle);
       const mapping=stageMapping(oldSession.bundle,bundle);
       nextSession={...oldSession,bundle,storage:remapStageStorage(oldSession.storage,mapping)};
     }else{
@@ -370,7 +376,7 @@ async function handleRestore(event){
     let restored;
     try{restored=await decryptValue(record,key)}
     catch{throw Error('Неверный пароль или повреждённая резервная копия.')}
-    validateBundle(restored.bundle);
+    validateBundle(restored.bundle);await verifyBundleTrust(restored.bundle);
     buildPrivateHTML(restored.bundle,restored.storage,'validation-token',restored.maptilerKey||'');
     if(encryptedRecord&&!confirm('Восстановить копию вместо текущего путеводителя на этом устройстве? Текущие данные будут заменены.')){status('Восстановление отменено.');return}
     await flush();await database('put',record);
@@ -404,7 +410,7 @@ async function inspectProtectedBackup(record,password){
   const safe=validateProtectedRecord(record);
   const key=await keyFromPassword(password,unbase64(safe.salt));
   const data=await decryptValue(safe,key);
-  validateBundle(data?.bundle);
+  validateBundle(data?.bundle);await verifyBundleTrust(data.bundle);
   if(!data.storage||typeof data.storage!=='object'||Array.isArray(data.storage)||
      !data.tickets||typeof data.tickets!=='object'||Array.isArray(data.tickets))
     throw Error('В копии отсутствуют сохранённые данные или билеты.');
@@ -434,7 +440,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v18')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v19')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -476,8 +482,22 @@ async function checkVaultReadiness(){
 
 async function handleVaultMessage(event){
   const m=event.data;
-  if(!session||!sessionToken||event.origin!==location.origin||event.source!==$('privateFrame').contentWindow||m?.token!==sessionToken)return;
+  if(!session||!sessionToken||event.origin!=='null'||event.source!==$('privateFrame').contentWindow||m?.token!==sessionToken)return;
   if(m.type==='vault-show-settings'){$('mapSettings').click();return}
+  if(m.type==='vault-geolocation'){
+    if(!Number.isInteger(m.requestId)||m.requestId<1)return;
+    const reply=(coords,errorCode)=>{
+      if(!session||event.source!==$('privateFrame').contentWindow||m.token!==sessionToken)return;
+      event.source.postMessage({type:'vault-geolocation-response',token:sessionToken,requestId:m.requestId,coords,errorCode},'*');
+    };
+    if(!navigator.geolocation){reply(null,2);return}
+    navigator.geolocation.getCurrentPosition(
+      result=>reply({latitude:result.coords.latitude,longitude:result.coords.longitude,accuracy:result.coords.accuracy},null),
+      error=>reply(null,error?.code||2),
+      {enableHighAccuracy:false,timeout:12000,maximumAge:120000}
+    );
+    return;
+  }
   if(m.type==='vault-storage'){
     if(!privateKeyName(m.key)||typeof m.value!=='string'&&m.value!==null)return;
     if(m.value!==null&&m.value.length>2*1024*1024){lastPersistError=Error('Сохранённые данные превышают допустимый размер.');showSaveWarning(lastPersistError);return}
@@ -506,7 +526,9 @@ async function handleVaultMessage(event){
     else if(m.kind==='all'){result=Object.values(list).map(item=>({...item,blob:new Blob([unbase64(item.body)],{type:item.type})}))}
     else throw Error('Неизвестная операция');
   }catch(e){error=e.message||'Ошибка сохранения файла'}
-  event.source.postMessage({type:'vault-ticket-response',token:sessionToken,requestId:m.requestId,result,error},location.origin);
+  // Opaque-origin srcdoc frames require '*'; source and unguessable token
+  // ensure the reply can only be associated with the active private frame.
+  event.source.postMessage({type:'vault-ticket-response',token:sessionToken,requestId:m.requestId,result,error},'*');
 }
 
 window.addEventListener('message',handleVaultMessage);
@@ -553,7 +575,9 @@ for(const [inputId,labelId,previewId] of [['importFile','importFileName','import
       if(token!==filePreviewTokens[inputId])return;
       if(inputId==='importFile'){
         const info=summarizeBundle(data);
-        preview.textContent=`✓ Формат распознан: ${info.days} дней, ${info.stages} этапов, версия ${info.version}. Для открытия потребуется пароль.`;
+        const trust=await verifyBundleTrust(data);
+        if(token!==filePreviewTokens[inputId])return;
+        preview.textContent=`✓ ${trust==='signed'?'Цифровая подпись подтверждена':'Проверенный официальный пакет'}: ${info.days} дней, ${info.stages} этапов, версия ${info.version}. Для открытия потребуется пароль.`;
       }else{
         validateProtectedRecord(data);
         preview.textContent='✓ Формат зашифрованной копии распознан. Целостность проверится после ввода пароля.';

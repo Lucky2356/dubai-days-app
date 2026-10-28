@@ -1,5 +1,10 @@
 # Personal itinerary files must never be committed to the public repository.
 *.json
+# Only hand-authored, non-personal fixtures used by automated security tests.
+!tests/fixtures/
+!tests/fixtures/*.json
+*.pem
+*.key
 *.zip
 .private/
 private/
