@@ -36,9 +36,25 @@ test('mobile, keyboard and reduced-motion accommodations are present',()=>{
 
 test('PWA precaches the same current version and every imported module',()=>{
   for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js']){
-    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=16'));
+    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=17'));
   }
-  assert.match(html,/vault\.js\?v=16/);
-  assert.match(js,/vault-crypto\.js\?v=16/);
-  assert.match(js,/vault-pwa\.js\?v=16/);
+  assert.match(html,/vault\.js\?v=17/);
+  assert.match(js,/vault-crypto\.js\?v=17/);
+  assert.match(js,/vault-pwa\.js\?v=17/);
+});
+
+test('first-run file selection supports drag and drop without bypassing checks',()=>{
+  assert.match(html,/id="importDropZone"/);
+  assert.match(js,/importFile'\)\.dispatchEvent\(new Event\('change'/);
+  assert.match(js,/const info=summarizeBundle\(data\)/);
+  assert.match(js,/\$\('trustedImport'\)\.checked=false/);
+  assert.match(css,/\.file-picker\.drag-active/);
+});
+
+test('password feedback is accessible and never weakens the minimum',()=>{
+  assert.match(html,/id="passwordGuidance"[^>]*role="status"/);
+  assert.match(html,/id="importPassword"[^>]*minlength="12"/);
+  assert.match(html,/id="importConfirm"[^>]*minlength="12"/);
+  assert.match(js,/function updatePasswordGuidance\(/);
+  assert.match(js,/pass\.length<PASSWORD_MIN|password\.length<PASSWORD_MIN/);
 });

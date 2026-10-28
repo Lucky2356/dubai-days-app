@@ -1,5 +1,5 @@
-import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=16';
-import {initPwaUpdates} from './vault-pwa.js?v=16';
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=17';
+import {initPwaUpdates} from './vault-pwa.js?v=17';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -434,7 +434,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v16')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v17')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -513,6 +513,29 @@ window.addEventListener('message',handleVaultMessage);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void flush().catch(()=>{})});
 window.addEventListener('pagehide',()=>{void flush().catch(()=>{})});
 document.querySelectorAll('[data-toggle-password]').forEach(button=>button.addEventListener('click',()=>{const input=$(button.dataset.togglePassword);input.type=input.type==='password'?'text':'password';button.setAttribute('aria-label',input.type==='password'?'Показать пароль':'Скрыть пароль')}));
+function updatePasswordGuidance(){
+  const password=$('importPassword').value,confirmation=$('importConfirm').value,node=$('passwordGuidance');
+  node.dataset.mode=!password?'hint':password.length<PASSWORD_MIN?'warn':confirmation&&password!==confirmation?'warn':confirmation?'ok':'hint';
+  node.textContent=!password?'Минимум 12 символов. Сохраните пароль отдельно: восстановить его нельзя.':
+    password.length<PASSWORD_MIN?`Добавьте ещё ${PASSWORD_MIN-password.length} символов к паролю.`:
+    confirmation&&password!==confirmation?'Пароли пока не совпадают.':confirmation?'✓ Пароли совпадают. Не забудьте сохранить пароль отдельно.':'Теперь повторите пароль для проверки.';
+}
+for(const id of ['importPassword','importConfirm'])$(id).addEventListener('input',updatePasswordGuidance);
+const importDropZone=$('importDropZone');
+for(const name of ['dragenter','dragover'])importDropZone.addEventListener(name,event=>{
+  if(!Array.from(event.dataTransfer?.types||[]).includes('Files'))return;
+  event.preventDefault();event.dataTransfer.dropEffect='copy';importDropZone.classList.add('drag-active');
+});
+for(const name of ['dragleave','drop'])importDropZone.addEventListener(name,event=>{
+  importDropZone.classList.remove('drag-active');
+  if(name!=='drop'||!event.dataTransfer?.files?.length)return;
+  event.preventDefault();
+  try{
+    const chosen=event.dataTransfer.files[0],transfer=new DataTransfer();
+    transfer.items.add(chosen);$('importFile').files=transfer.files;
+    $('importFile').dispatchEvent(new Event('change',{bubbles:true}));
+  }catch{ $('importPreview').textContent='Перетаскивание не поддерживается этим браузером. Нажмите «Выбрать файл маршрута».'; }
+});
 const filePreviewTokens={importFile:0,restoreFile:0};
 for(const [inputId,labelId,previewId] of [['importFile','importFileName','importPreview'],['restoreFile','restoreFileName','restorePreview']]){
   $(inputId).addEventListener('change',async()=>{

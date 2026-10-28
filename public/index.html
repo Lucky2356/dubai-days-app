@@ -8,10 +8,10 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=16">
+  <link rel="stylesheet" href="./vault.css?v=17">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="./vault.js?v=16"></script>
+  <script type="module" src="./vault.js?v=17"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -37,7 +37,7 @@
       </form>
       <form id="importForm" hidden>
         <label for="importFile">Ваш маршрут — файл .json</label>
-        <div class="file-picker"><input id="importFile" type="file" accept=".json,application/json" aria-describedby="importFileName"><label class="file-picker-button" for="importFile">Выбрать файл маршрута</label><span id="importFileName" class="file-picker-name" role="status" aria-live="polite">Файл ещё не выбран</span></div>
+        <div class="file-picker" id="importDropZone"><input id="importFile" type="file" accept=".json,application/json" aria-describedby="importFileName"><label class="file-picker-button" for="importFile">Выбрать файл маршрута <span class="drop-hint">или перетащить сюда</span></label><span id="importFileName" class="file-picker-name" role="status" aria-live="polite">Файл ещё не выбран</span></div>
         <p class="file-preview" id="importPreview" role="status" aria-live="polite"></p>
         <details class="vault-help"><summary>Где взять файл и как открыть сайт?</summary><p>Скачайте личный JSON-файл Dubai Days по ссылке, которую вы получили при создании маршрута. Выберите его здесь один раз и придумайте пароль. При следующих входах на этом устройстве понадобится только пароль.</p><p>Для восстановления уже сохранённых данных служит отдельная кнопка «Восстановить защищённую копию» ниже. Не используйте JSON из неизвестных источников.</p></details>
         <div class="password-set" id="importNewPasswords">
@@ -45,6 +45,7 @@
           <div class="password-field"><input id="importPassword" type="password" autocomplete="new-password" required minlength="12" placeholder="Надёжный пароль"><button type="button" data-toggle-password="importPassword" aria-label="Показать пароль">◉</button></div>
           <label for="importConfirm">Повторите пароль</label>
           <input id="importConfirm" type="password" autocomplete="new-password" required minlength="12" placeholder="Повтор пароля">
+          <p class="password-guidance" id="passwordGuidance" role="status" aria-live="polite">Минимум 12 символов. Сохраните пароль отдельно: восстановить его нельзя.</p>
         </div>
         <div class="password-set" id="importExistingPassword" hidden>
           <label for="updatePassword">Текущий пароль от путеводителя</label>

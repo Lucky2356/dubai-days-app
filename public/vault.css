@@ -175,3 +175,10 @@ input[type=file]{font-size:12px;padding:10px}
 .file-preview[hidden]{display:none}
 .trust-file{display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.5;font-weight:600;color:#355c48;margin-top:6px}
 .trust-file input{appearance:auto;width:20px;min-width:20px;height:20px;min-height:20px;margin:1px 0 0;accent-color:#185642;flex-shrink:0}
+.file-picker-button{flex-wrap:wrap;gap:4px 9px;text-align:center;padding:9px 12px}
+.drop-hint{font-weight:500;font-size:12px;color:#567b67}
+.file-picker.drag-active .file-picker-button{background:#d9efe0;border:2px dashed #16724c}
+.password-guidance{font-size:12px!important;line-height:1.5;color:#547462;margin:1px 0 9px!important}
+.password-guidance[data-mode="warn"]{color:#a15a22}
+.password-guidance[data-mode="ok"]{color:#126845}
+@media (hover:none),(pointer:coarse){.drop-hint{display:none}}
