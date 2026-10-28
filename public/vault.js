@@ -4,6 +4,9 @@ const DB_NAME='dubai-days-encrypted-vault-v1';
 const FORMAT='dubai-days-private-import-v1';
 const PASSWORD_MIN=12;
 const ITERATIONS=310000;
+// Keep the encrypted export safely below the restore size limit on phones.
+const MAX_TICKET_BASE64=40*1024*1024;
+const MAX_RESTORE_BYTES=128*1024*1024; // Also accept older, larger backups.
 const $=id=>document.getElementById(id);
 let encryptedRecord=null,session=null,sessionKey=null,sessionToken=null;
 let persistQueue=Promise.resolve(),persistQueued=false,lastPersistError=null;
@@ -346,7 +349,7 @@ async function handleImport(event){
 async function handleRestore(event){
   event.preventDefault();
   const file=$('restoreFile').files?.[0],pass=$('restorePassword').value,button=$('restoreButton');
-  if(!file||file.size>64*1024*1024||pass.length<PASSWORD_MIN){status('Выберите защищённую копию не более 64 МБ и введите её пароль.');return}
+  if(!file||file.size>MAX_RESTORE_BYTES||pass.length<PASSWORD_MIN){status('Выберите защищённую копию не более 128 МБ и введите её пароль.');return}
   button.disabled=true;status('Проверяем резервную копию…');
   try{
     const record=validateProtectedRecord(JSON.parse(await file.text()));
@@ -393,7 +396,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v9')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v10')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -447,9 +450,12 @@ async function handleVaultMessage(event){
   let result=null,error=null;
   try{
     const list=session.tickets||={};
+    if(m.kind!=='all'&&(typeof m.id!=='string'||!m.id||m.id.length>160||['__proto__','constructor','prototype'].includes(m.id)))throw Error('Некорректный идентификатор билета');
     if(m.kind==='put'){
-      if(!m.record?.blob||typeof m.record.blob.arrayBuffer!=='function'||m.record.blob.size>6*1024*1024||typeof m.id!=='string'||!m.id||m.id.length>160)throw Error('Некорректное вложение');
-      if(!list[m.id]&&Object.keys(list).length>=150)throw Error('Достигнут лимит сохранённых билетов. Скачайте резервную копию.');
+      if(!m.record?.blob||typeof m.record.blob.arrayBuffer!=='function'||m.record.blob.size>6*1024*1024)throw Error('Некорректное вложение');
+      if(!Object.hasOwn(list,m.id)&&Object.keys(list).length>=150)throw Error('Достигнут лимит сохранённых билетов. Скачайте резервную копию.');
+      const occupied=Object.entries(list).reduce((total,[id,item])=>total+(id===m.id?0:String(item?.body||'').length),0);
+      if(occupied+4*Math.ceil(m.record.blob.size/3)>MAX_TICKET_BASE64)throw Error('Общий размер вложений превышает 30 МБ. Удалите ненужные билеты, заранее сохранив оригиналы.');
       list[m.id]={id:m.id,name:String(m.record.name||'Билет').slice(0,120),type:m.record.type,body:base64(new Uint8Array(await m.record.blob.arrayBuffer())),savedAt:m.record.savedAt};
       schedulePersist();await flush();
     }else if(m.kind==='delete'){delete list[m.id];schedulePersist();await flush()}
