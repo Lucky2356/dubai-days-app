@@ -349,7 +349,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v5')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v6')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -434,6 +434,7 @@ $('mapSettings').addEventListener('click',()=>{
   void refreshVaultHealth();
 });
 $('cancelMapSettings').addEventListener('click',()=>$('mapSettingsDialog').close());
+$('closeVaultSettings').addEventListener('click',()=>$('mapSettingsDialog').close());
 $('exportVault').addEventListener('click',exportProtectedBackup);
 $('checkVault').addEventListener('click',()=>{void checkVaultReadiness()});
 $('persistVault').addEventListener('click',async()=>{

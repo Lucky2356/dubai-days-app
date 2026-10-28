@@ -8,10 +8,10 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=5">
+  <link rel="stylesheet" href="./vault.css?v=6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="./vault.js?v=5"></script>
+  <script type="module" src="./vault.js?v=6"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -64,15 +64,7 @@
     <iframe id="privateFrame" title="Ваш личный путеводитель" referrerpolicy="no-referrer" allow="geolocation" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-modals allow-forms allow-downloads"></iframe>
   </section>
   <dialog class="map-dialog" id="mapSettingsDialog" aria-labelledby="mapSettingsTitle">
-    <form id="mapSettingsForm">
-      <h2 id="mapSettingsTitle">Настройки</h2>
-      <h3>Карта</h3>
-      <p>Карта работает и без ключа: через OpenFreeMap с резервными слоями улиц. Если у вас есть ключ MapTiler, можно использовать его для основной карты.</p>
-      <label for="maptilerKey">Ключ MapTiler (необязательно)</label>
-      <input id="maptilerKey" type="password" autocomplete="off" placeholder="Оставьте пустым для бесплатной карты">
-      <p class="map-dialog-note">Ключ сохранится только в зашифрованном хранилище на этом устройстве. Разрешите для него домен lucky2356.github.io в настройках MapTiler.</p>
-      <div class="map-dialog-actions"><button type="button" id="cancelMapSettings">Отмена</button><button type="submit" class="primary-button" id="saveMapSettings">Сохранить карту</button></div>
-    </form>
+    <div class="vault-dialog-header"><h2 id="mapSettingsTitle">Настройки</h2><button type="button" id="closeVaultSettings" aria-label="Закрыть настройки">×</button></div>
     <section class="vault-backup" aria-label="Резервная копия и обновление">
       <h3>Данные и резервная копия</h3>
       <p>Одна защищённая копия включает маршрут, отметки, расходы и все сохранённые билеты. Для восстановления понадобится ваш пароль.</p>
@@ -88,6 +80,15 @@
       <ul class="vault-checks" id="vaultChecks" aria-live="polite" hidden></ul>
       <p class="vault-official">Перед поездкой проверьте <a href="https://www.rta.ae/wps/portal/rta/ae/public-transport/journeyplanner" target="_blank" rel="noopener noreferrer">маршруты и водный транспорт на официальном сайте RTA ↗</a>.</p>
     </section>
+    <details class="vault-map-details"><summary>Карта · дополнительные настройки</summary>
+      <form id="mapSettingsForm">
+        <p>Карта работает и без ключа: через OpenFreeMap с резервными слоями улиц. Если у вас есть ключ MapTiler, можно использовать его для основной карты.</p>
+        <label for="maptilerKey">Ключ MapTiler (необязательно)</label>
+        <input id="maptilerKey" type="password" autocomplete="off" placeholder="Оставьте пустым для бесплатной карты">
+        <p class="map-dialog-note">Ключ сохранится только в зашифрованном хранилище на этом устройстве. Разрешите для него домен lucky2356.github.io в настройках MapTiler.</p>
+        <div class="map-dialog-actions"><button type="button" id="cancelMapSettings">Отмена</button><button type="submit" class="primary-button" id="saveMapSettings">Сохранить карту</button></div>
+      </form>
+    </details>
   </dialog>
 </body>
 </html>
