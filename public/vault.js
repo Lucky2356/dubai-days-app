@@ -1,5 +1,5 @@
-import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=15';
-import {initPwaUpdates} from './vault-pwa.js?v=15';
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=16';
+import {initPwaUpdates} from './vault-pwa.js?v=16';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -434,7 +434,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v15')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v16')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -494,9 +494,14 @@ async function handleVaultMessage(event){
       if(!Object.hasOwn(list,m.id)&&Object.keys(list).length>=150)throw Error('Достигнут лимит сохранённых билетов. Скачайте резервную копию.');
       const occupied=Object.entries(list).reduce((total,[id,item])=>total+(id===m.id?0:String(item?.body||'').length),0);
       if(occupied+4*Math.ceil(m.record.blob.size/3)>MAX_TICKET_BASE64)throw Error('Общий размер вложений превышает 30 МБ. Удалите ненужные билеты, заранее сохранив оригиналы.');
+      const previous=list[m.id],existed=Object.hasOwn(list,m.id);
       list[m.id]={id:m.id,name:String(m.record.name||'Билет').slice(0,120),type:m.record.type,body:base64(new Uint8Array(await m.record.blob.arrayBuffer())),savedAt:m.record.savedAt};
-      schedulePersist();await flush();
-    }else if(m.kind==='delete'){delete list[m.id];schedulePersist();await flush()}
+      try{schedulePersist();await flush()}catch(error){if(existed)list[m.id]=previous;else delete list[m.id];throw error}
+    }else if(m.kind==='delete'){
+      const previous=list[m.id],existed=Object.hasOwn(list,m.id);
+      delete list[m.id];
+      try{schedulePersist();await flush()}catch(error){if(existed)list[m.id]=previous;throw error}
+    }
     else if(m.kind==='get'){const item=list[m.id];result=item?{...item,blob:new Blob([unbase64(item.body)],{type:item.type})}:undefined}
     else if(m.kind==='all'){result=Object.values(list).map(item=>({...item,blob:new Blob([unbase64(item.body)],{type:item.type})}))}
     else throw Error('Неизвестная операция');

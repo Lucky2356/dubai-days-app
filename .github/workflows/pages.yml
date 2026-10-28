@@ -41,6 +41,8 @@ jobs:
           node tests/integration.test.mjs
           node tests/update-flow.test.mjs
           node tests/ui-contract.test.mjs
+          node tests/lifecycle.test.mjs
+          node tests/bridge.test.mjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

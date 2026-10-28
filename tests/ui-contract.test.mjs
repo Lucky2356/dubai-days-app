@@ -36,9 +36,9 @@ test('mobile, keyboard and reduced-motion accommodations are present',()=>{
 
 test('PWA precaches the same current version and every imported module',()=>{
   for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js']){
-    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=15'));
+    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=16'));
   }
-  assert.match(html,/vault\.js\?v=15/);
-  assert.match(js,/vault-crypto\.js\?v=15/);
-  assert.match(js,/vault-pwa\.js\?v=15/);
+  assert.match(html,/vault\.js\?v=16/);
+  assert.match(js,/vault-crypto\.js\?v=16/);
+  assert.match(js,/vault-pwa\.js\?v=16/);
 });
