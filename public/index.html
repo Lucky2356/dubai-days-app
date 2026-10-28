@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f8f4">
+  <meta name="description" content="Личный путеводитель с зашифрованным хранением на этом устройстве.">
+  <title>Dubai Days · личный путеводитель</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./vault.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script type="module" src="./vault.js"></script>
+</head>
+<body>
+  <main class="vault-layout" id="vaultGate">
+    <div class="brand"><span class="brand-logo">D<span>✳</span></span><span><strong>dubai<span class="brand-period">.</span>days</strong><small>PRIVATE TRAVEL EDITION</small></span></div>
+    <section class="welcome" aria-labelledby="vaultTitle">
+      <span class="eyebrow"><span class="green-dot"></span> ЛИЧНОЕ ПРОСТРАНСТВО</span>
+      <h1 id="vaultTitle">Ваш маршрут.<br><em>Только у вас.</em></h1>
+      <p class="lede">Путеводитель, бюджет и бронирования хранятся в зашифрованном виде на этом устройстве. Данные поездки не загружаются на сервер сайта.</p>
+      <div class="trust"><span>⌁ Шифрование AES-GCM</span><span>◎ Без аккаунта</span><span>⇄ Без синхронизации</span></div>
+    </section>
+    <section class="vault-card" aria-labelledby="accessTitle">
+      <div class="card-header"><span class="lock-icon" aria-hidden="true">♧</span><span><small id="cardKicker">ЛОКАЛЬНОЕ ХРАНИЛИЩЕ</small><h2 id="accessTitle">Открыть путеводитель</h2></span></div>
+      <p id="vaultExplainer">Если вы уже загрузили маршрут на это устройство, введите пароль для расшифровки.</p>
+      <form id="unlockForm" hidden>
+        <label for="unlockPassword">Пароль</label>
+        <div class="password-field"><input id="unlockPassword" type="password" autocomplete="current-password" required minlength="12" placeholder="Ваш пароль"><button type="button" data-toggle-password="unlockPassword" aria-label="Показать пароль">◉</button></div>
+        <button class="primary-button" type="submit" id="unlockButton">Открыть мой маршрут →</button>
+      </form>
+      <form id="importForm" hidden>
+        <label for="importFile">Файл личного путеводителя</label>
+        <input id="importFile" type="file" accept=".json,application/json" required>
+        <label for="importPassword">Придумайте пароль (не менее 12 символов)</label>
+        <div class="password-field"><input id="importPassword" type="password" autocomplete="new-password" required minlength="12" placeholder="Надёжный пароль"><button type="button" data-toggle-password="importPassword" aria-label="Показать пароль">◉</button></div>
+        <label for="importConfirm">Повторите пароль</label>
+        <input id="importConfirm" type="password" autocomplete="new-password" required minlength="12" placeholder="Повтор пароля">
+        <button class="primary-button" type="submit" id="importButton">Зашифровать и открыть →</button>
+      </form>
+      <p class="status" id="vaultStatus" role="status" aria-live="polite"></p>
+      <div class="foot-actions"><button type="button" id="switchToImport" hidden>Загрузить другой маршрут</button><button type="button" id="switchToUnlock" hidden>Вернуться к разблокировке</button></div>
+    </section>
+    <aside class="info"><strong>Важное о защите</strong><p>Пароль не отправляется в интернет и не восстанавливается. Сохраните исходный файл маршрута отдельно: если удалить данные браузера или забыть пароль, восстановить зашифрованную копию нельзя.</p></aside>
+    <footer>Dubai Days · Личные данные остаются на вашем устройстве</footer>
+  </main>
+  <section class="running" id="running" hidden aria-label="Личный путеводитель">
+    <div class="running-header"><span><strong>dubai.days</strong><small>Зашифрованное локальное хранение · разблокировано</small></span><button type="button" id="lockVault">🔒 Закрыть</button></div>
+    <iframe id="privateFrame" title="Ваш личный путеводитель" referrerpolicy="no-referrer" allow="geolocation" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"></iframe>
+  </section>
+</body>
+</html>
