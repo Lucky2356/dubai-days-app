@@ -32,7 +32,7 @@ function vaultContext(){
 function bundleValidator(){
   const ctx={FORMAT:'dubai-days-private-import-v1',ITERATIONS:310000};
   vm.createContext(ctx);
-  vm.runInContext(source.slice(source.indexOf('function validateBundle('),source.indexOf('function sameStages('))+'\nthis.validate=validateBundle;',ctx);
+  vm.runInContext(source.slice(source.indexOf('function validateBundle('),source.indexOf('function sameStages('))+'\nthis.validate=validateBundle;this.summarize=summarizeBundle;',ctx);
   return ctx.validate;
 }
 
@@ -95,6 +95,15 @@ test('PWA manifest has real install icons and matching assets',()=>{
 
 test('synthetic eight-day itinerary passes basic structure validation',()=>{
   assert.equal(bundleValidator()(syntheticBundle()).version,50);
+});
+
+test('file preflight counts days and stages without exposing personal data',()=>{
+  const ctx={FORMAT:'dubai-days-private-import-v1'};
+  vm.createContext(ctx);
+  vm.runInContext(source.slice(source.indexOf('function validateBundle('),source.indexOf('function sameStages('))+'\nthis.summarize=summarizeBundle;',ctx);
+  const file=syntheticBundle();file.data.trip.days[0].legs=[{mode:'walk'},{mode:'metro'}];
+  const result=JSON.parse(JSON.stringify(ctx.summarize(file)));
+  assert.deepEqual(result,{days:8,stages:2,version:50});
 });
 
 test('import rejects injected HTML and unsafe navigation schemes',()=>{

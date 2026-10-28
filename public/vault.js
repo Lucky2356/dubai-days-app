@@ -1,5 +1,5 @@
-import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=14';
-import {initPwaUpdates} from './vault-pwa.js?v=14';
+import {base64,unbase64,keyFromPassword,encryptValue,decryptValue} from './vault-crypto.js?v=15';
+import {initPwaUpdates} from './vault-pwa.js?v=15';
 // Public shell. The original itinerary and application assets are NEVER
 // fetched from GitHub Pages; they come from a user-supplied private bundle.
 const DB_NAME='dubai-days-encrypted-vault-v1';
@@ -81,6 +81,10 @@ function validateBundle(data){
   const scripts=[...data.html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
   if(scripts.length!==(data.html.match(/<script\b/gi)||[]).length||scripts.some(([,attributes,body])=>body.trim()||!/\bsrc=["']\.\/[\w/-]+\.js(?:\?[\w=&.-]+)?["']/i.test(attributes))||/<(?:iframe|object|embed)\b|\s+on[a-z]{3,}\s*=|javascript\s*:/i.test(data.html))throw Error('Файл содержит неподдерживаемый HTML-код. Загружайте только файл Dubai Days из доверенного источника.');
   return data;
+}
+function summarizeBundle(data){
+  const bundle=validateBundle(data);
+  return {days:bundle.data.trip.days.length,stages:bundle.data.trip.days.reduce((count,day)=>count+(Array.isArray(day.legs)?day.legs.length:0),0),version:bundle.version};
 }
 function sameStages(previous,next){
   const a=previous.data.trip.days,b=next.data.trip.days;
@@ -318,6 +322,7 @@ async function handleUnlock(event){
 }
 async function handleImport(event){
   event.preventDefault();
+  if(!$('trustedImport').checked){status('Подтвердите, что доверяете источнику файла маршрута.');return}
   const updating=!!encryptedRecord,pass=$(updating?'updatePassword':'importPassword').value,confirmPass=$('importConfirm').value;
   const button=$('importButton'),file=$('importFile').files?.[0];
   if(!file||file.size>8*1024*1024){status('Выберите JSON-файл размером не более 8 МБ.');return}
@@ -348,6 +353,7 @@ async function handleImport(event){
     encryptedRecord=record;session=nextSession;sessionKey=key;
     if(!updating)await clearLegacy(legacyStorage,legacyTickets);
     $('updatePassword').value='';
+    $('trustedImport').checked=false;
     unlockFrame();
   }catch(error){status(error?.message||'Не удалось импортировать файл. Данные не изменены.')}
   finally{button.disabled=false}
@@ -428,7 +434,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v14')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v15')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -502,10 +508,29 @@ window.addEventListener('message',handleVaultMessage);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void flush().catch(()=>{})});
 window.addEventListener('pagehide',()=>{void flush().catch(()=>{})});
 document.querySelectorAll('[data-toggle-password]').forEach(button=>button.addEventListener('click',()=>{const input=$(button.dataset.togglePassword);input.type=input.type==='password'?'text':'password';button.setAttribute('aria-label',input.type==='password'?'Показать пароль':'Скрыть пароль')}));
-for(const [inputId,labelId] of [['importFile','importFileName'],['restoreFile','restoreFileName']]){
-  $(inputId).addEventListener('change',()=>{
+const filePreviewTokens={importFile:0,restoreFile:0};
+for(const [inputId,labelId,previewId] of [['importFile','importFileName','importPreview'],['restoreFile','restoreFileName','restorePreview']]){
+  $(inputId).addEventListener('change',async()=>{
     const file=$(inputId).files?.[0];
+    if(inputId==='importFile')$('trustedImport').checked=false;
     $(labelId).textContent=file?file.name:'Файл ещё не выбран';
+    const token=++filePreviewTokens[inputId],preview=$(previewId);
+    preview.textContent='';if(!file)return;
+    const max=inputId==='importFile'?8*1024*1024:MAX_RESTORE_BYTES;
+    if(file.size>max){preview.textContent='Файл превышает допустимый размер.';return}
+    if(inputId==='restoreFile'&&file.size>8*1024*1024){preview.textContent='Большая зашифрованная копия выбрана. Проверим её после ввода пароля.';return}
+    preview.textContent='Проверяем формат файла…';
+    try{
+      const data=JSON.parse(await file.text());
+      if(token!==filePreviewTokens[inputId])return;
+      if(inputId==='importFile'){
+        const info=summarizeBundle(data);
+        preview.textContent=`✓ Формат распознан: ${info.days} дней, ${info.stages} этапов, версия ${info.version}. Для открытия потребуется пароль.`;
+      }else{
+        validateProtectedRecord(data);
+        preview.textContent='✓ Формат зашифрованной копии распознан. Целостность проверится после ввода пароля.';
+      }
+    }catch(error){if(token===filePreviewTokens[inputId])preview.textContent='Этот файл не подходит: '+(error?.message||'неверный JSON')}
   });
 }
 $('unlockForm').addEventListener('submit',handleUnlock);

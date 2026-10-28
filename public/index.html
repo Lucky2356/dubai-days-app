@@ -8,10 +8,10 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=14">
+  <link rel="stylesheet" href="./vault.css?v=15">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="./vault.js?v=14"></script>
+  <script type="module" src="./vault.js?v=15"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -38,6 +38,7 @@
       <form id="importForm" hidden>
         <label for="importFile">Ваш маршрут — файл .json</label>
         <div class="file-picker"><input id="importFile" type="file" accept=".json,application/json" aria-describedby="importFileName"><label class="file-picker-button" for="importFile">Выбрать файл маршрута</label><span id="importFileName" class="file-picker-name" role="status" aria-live="polite">Файл ещё не выбран</span></div>
+        <p class="file-preview" id="importPreview" role="status" aria-live="polite"></p>
         <details class="vault-help"><summary>Где взять файл и как открыть сайт?</summary><p>Скачайте личный JSON-файл Dubai Days по ссылке, которую вы получили при создании маршрута. Выберите его здесь один раз и придумайте пароль. При следующих входах на этом устройстве понадобится только пароль.</p><p>Для восстановления уже сохранённых данных служит отдельная кнопка «Восстановить защищённую копию» ниже. Не используйте JSON из неизвестных источников.</p></details>
         <div class="password-set" id="importNewPasswords">
           <label for="importPassword">Придумайте пароль (не менее 12 символов)</label>
@@ -49,11 +50,13 @@
           <label for="updatePassword">Текущий пароль от путеводителя</label>
           <div class="password-field"><input id="updatePassword" type="password" autocomplete="current-password" minlength="12" placeholder="Ваш прежний пароль"><button type="button" data-toggle-password="updatePassword" aria-label="Показать пароль">◉</button></div>
         </div>
+        <label class="trust-file"><input id="trustedImport" type="checkbox" required><span>Я доверяю источнику файла Dubai Days. Маршрут содержит исполняемые компоненты приложения.</span></label>
         <button class="primary-button" type="submit" id="importButton">Зашифровать и открыть →</button>
       </form>
       <form id="restoreForm" hidden>
         <label for="restoreFile">Зашифрованная резервная копия</label>
         <div class="file-picker"><input id="restoreFile" type="file" accept=".json,application/json" aria-describedby="restoreFileName"><label class="file-picker-button" for="restoreFile">Выбрать защищённую копию</label><span id="restoreFileName" class="file-picker-name" role="status" aria-live="polite">Файл ещё не выбран</span></div>
+        <p class="file-preview" id="restorePreview" role="status" aria-live="polite"></p>
         <p class="vault-form-hint">Используйте копию, ранее скачанную из «Настройки → Скачать защищённую копию», а не обычный файл маршрута.</p>
         <label for="restorePassword">Пароль от копии</label>
         <div class="password-field"><input id="restorePassword" type="password" autocomplete="current-password" required minlength="12" placeholder="Пароль от резервной копии"><button type="button" data-toggle-password="restorePassword" aria-label="Показать пароль">◉</button></div>

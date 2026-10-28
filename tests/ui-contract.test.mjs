@@ -21,6 +21,12 @@ test('required inputs, update feedback and backup result have accessible names',
     assert.match(html,new RegExp(`id="${id}"[^>]*(?:role="status"|aria-live="polite")`));
 });
 
+test('import requires explicit acknowledgement of executable source',()=>{
+  assert.match(html,/id="trustedImport"[^>]*required/);
+  assert.match(html,/id="importPreview"[^>]*aria-live="polite"/);
+  assert.match(js,/if\(!\$\('trustedImport'\)\.checked\)/);
+});
+
 test('mobile, keyboard and reduced-motion accommodations are present',()=>{
   assert.match(css,/:focus-visible/);
   assert.match(css,/@media\(max-width:820px\)/);
@@ -30,9 +36,9 @@ test('mobile, keyboard and reduced-motion accommodations are present',()=>{
 
 test('PWA precaches the same current version and every imported module',()=>{
   for(const file of ['vault.css','vault.js','vault-crypto.js','vault-pwa.js']){
-    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=14'));
+    assert.match(worker,new RegExp(file.replaceAll('.','\\.')+'\\?v=15'));
   }
-  assert.match(html,/vault\.js\?v=14/);
-  assert.match(js,/vault-crypto\.js\?v=14/);
-  assert.match(js,/vault-pwa\.js\?v=14/);
+  assert.match(html,/vault\.js\?v=15/);
+  assert.match(js,/vault-crypto\.js\?v=15/);
+  assert.match(js,/vault-pwa\.js\?v=15/);
 });
