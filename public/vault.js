@@ -195,6 +195,14 @@ const jsLiteral=value=>JSON.stringify(value).replaceAll('<','\\u003c').replaceAl
 const safeInline=(source,tag)=>source.replace(new RegExp('</'+tag,'gi'),'<\\/'+tag);
 const asScript=source=>'<script>'+safeInline(source,'script')+'<\/script>';
 const unpackExports=source=>source.replace(/^export\s+/gm,'');
+// RTA's JavaScript timetable may render as a blank page in some browsers.
+// Apply the verified static-document links to already imported v48/v49
+// itineraries at unlock time, so users do not need to re-import private data.
+const abraPDF='https://www.rta.ae/links/marine/rta-abra-routes.pdf';
+const abraStation='https://www.rta.ae/links/promotions/en/jaddaf.html';
+const oldTimetable=/https:\/\/(?:www\.)?rta\.ae\/wps\/portal\/rta\/ae\/public-transport\/timetable(?:\?lang=en)?/g;
+const oldJaddaf=/https:\/\/(?:www\.)?rta\.ae\/wps\/portal\/rta\/ae\/home\/promotion\/jeddaf-abra(?:\?lang=en)?/g;
+const repairMarineURL=(text,promoReplacement=abraPDF)=>text.replace(oldTimetable,abraPDF).replace(oldJaddaf,promoReplacement);
 
 function unifyPrivateBackups(app,tools){
   // Older private JSONs contain multiple incompatible backup formats, one of
@@ -227,15 +235,16 @@ function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
   const rootUrl=location.href.replace(/(?:vault-shell\/)?(?:index\.html)?(?:[?#].*)?$/,'');
   const head='<base href="'+rootUrl+'"><style>'+safeInline(styles,'style')+'</style>';
   html=html.replace('</head>',head+'</head>');
-  const prelude=`\nwindow.DUBAI_MAP_CONFIG=${jsLiteral({maptilerKey})};\nwindow.__vaultData=${jsLiteral(bundle.data)};\nwindow.__vaultStorageData=${jsLiteral(storage)};\nwindow.__vaultToken=${jsLiteral(token)};\nwindow.__vaultLocalStorage={getItem(key){return Object.prototype.hasOwnProperty.call(window.__vaultStorageData,key)?window.__vaultStorageData[key]:null},setItem(key,value){window.__vaultStorageData[key]=String(value);parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:String(value)},'*')},removeItem(key){delete window.__vaultStorageData[key];parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:null},'*')}};\nconst oldFetch=window.fetch.bind(window);window.fetch=(resource,options)=>{const url=typeof resource==='string'?resource:'';if(/(?:^|\\/)data\\/(?:trip|geometry)\\.json(?:[?#]|$)/.test(url)){const key=url.includes('trip.json')?'trip':'geometry';return Promise.resolve(new Response(JSON.stringify(window.__vaultData[key]),{status:200,headers:{'Content-Type':'application/json'}}))}return oldFetch(resource,options)};\nlet vaultSequence=0;const pendingTickets=new Map();window.addEventListener('message',event=>{const m=event.data;if(m?.type!=='vault-ticket-response'||m.token!==window.__vaultToken)return;const request=pendingTickets.get(m.requestId);if(!request)return;pendingTickets.delete(m.requestId);m.error?request.reject(Error(m.error)):request.resolve(m.result)});window.__vaultTicketOp=(kind,id,record)=>new Promise((resolve,reject)=>{const requestId=++vaultSequence;pendingTickets.set(requestId,{resolve,reject});parent.postMessage({type:'vault-ticket',token:window.__vaultToken,requestId,kind,id,record},'*')});\n`;
-  const content=unpackExports(bundle.scripts['content.js']);
+  const repairedData=JSON.parse(repairMarineURL(JSON.stringify(bundle.data)));
+  const prelude=`\nwindow.DUBAI_MAP_CONFIG=${jsLiteral({maptilerKey})};\nwindow.__vaultData=${jsLiteral(repairedData)};\nwindow.__vaultStorageData=${jsLiteral(storage)};\nwindow.__vaultToken=${jsLiteral(token)};\nwindow.__vaultLocalStorage={getItem(key){return Object.prototype.hasOwnProperty.call(window.__vaultStorageData,key)?window.__vaultStorageData[key]:null},setItem(key,value){window.__vaultStorageData[key]=String(value);parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:String(value)},'*')},removeItem(key){delete window.__vaultStorageData[key];parent.postMessage({type:'vault-storage',token:window.__vaultToken,key,value:null},'*')}};\nconst oldFetch=window.fetch.bind(window);window.fetch=(resource,options)=>{const url=typeof resource==='string'?resource:'';if(/(?:^|\\/)data\\/(?:trip|geometry)\\.json(?:[?#]|$)/.test(url)){const key=url.includes('trip.json')?'trip':'geometry';return Promise.resolve(new Response(JSON.stringify(window.__vaultData[key]),{status:200,headers:{'Content-Type':'application/json'}}))}return oldFetch(resource,options)};\nlet vaultSequence=0;const pendingTickets=new Map();window.addEventListener('message',event=>{const m=event.data;if(m?.type!=='vault-ticket-response'||m.token!==window.__vaultToken)return;const request=pendingTickets.get(m.requestId);if(!request)return;pendingTickets.delete(m.requestId);m.error?request.reject(Error(m.error)):request.resolve(m.result)});window.__vaultTicketOp=(kind,id,record)=>new Promise((resolve,reject)=>{const requestId=++vaultSequence;pendingTickets.set(requestId,{resolve,reject});parent.postMessage({type:'vault-ticket',token:window.__vaultToken,requestId,kind,id,record},'*')});\n`;
+  const content=repairMarineURL(unpackExports(bundle.scripts['content.js']),abraStation);
   const companion=unpackExports(bundle.scripts['companion.js']);
   const logic=unpackExports(bundle.scripts['travel-logic.js']);
   const protectedPrelude=prelude+`\nwindow.__vaultShowSettings=()=>parent.postMessage({type:'vault-show-settings',token:window.__vaultToken},'*');\ndocument.addEventListener('click',event=>{if(event.target.closest?.('[data-vault-backup]')){event.preventDefault();window.__vaultShowSettings()}},true);\n`;
   const define=asScript(protectedPrelude)+asScript('window.__content=(()=>{'+content+';return {FOOD,SHOPS,EXTRAS,BOOKINGS,TIPS,CATEGORIES}})();')+
     asScript('window.__companion=(()=>{'+companion+';return {distanceKm,nearestLeg,dailyBudget,weatherDescription,offlineMapSvg,bookingIcs}})();')+
     asScript('window.__logic=(()=>{'+logic+';return {preferredTripContext,clockWithDay,analyzePlanB,weightedDailyBudget,spendingByDay,calendarForStages,extraRecommendations,validateImportedBundle,TRIP_START_UTC}})();');
-  let app=bundle.scripts['app.js'].replace(/^import\s+.*?;\s*$/gm,'');
+  let app=repairMarineURL(bundle.scripts['app.js']).replace(/^import\s+.*?;\s*$/gm,'');
   app=app.replace("if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});",'');
   app=app.replace('./assets/dubai-emergency-card.pdf','data:application/pdf;base64,'+bundle.assets.emergencyPdf);
   const appHead='const localStorage=window.__vaultLocalStorage;const {FOOD,SHOPS,EXTRAS,BOOKINGS,TIPS,CATEGORIES}=window.__content;const {distanceKm,nearestLeg,dailyBudget,weatherDescription,offlineMapSvg,bookingIcs}=window.__companion;';
