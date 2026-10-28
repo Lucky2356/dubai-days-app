@@ -39,7 +39,9 @@ try{
       await page.locator('#importConfirm').fill('BrowserQaPassword-2026!');
       await page.locator('#trustedImport').check();
       await page.locator('#importButton').click();
-      await page.locator('#running').waitFor({state:'visible',timeout:30000});
+      await page.locator('#running').waitFor({state:'visible',timeout:30000}).catch(async error=>{
+        throw Error(`${error.message}\nImport status: ${await page.locator('#vaultStatus').innerText()}`);
+      });
       const frame=page.frameLocator('#privateFrame');
       await frame.locator('#appScreen').waitFor({state:'attached',timeout:10000});
       assert.equal(await page.locator('#privateFrame').getAttribute('sandbox').then(x=>x.includes('allow-same-origin')),false);
