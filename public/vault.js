@@ -47,12 +47,17 @@ function setSaveState(message,mode='ok'){
   node.textContent=message;node.dataset.mode=mode;
 }
 function refreshBackupReminder(){
-  const button=$('mapSettings');
   const saved=Date.parse(session?.lastBackupAt||'');
   const due=!Number.isFinite(saved)||saved>Date.now()||Date.now()-saved>30*86400000;
-  button.classList.toggle('backup-needed',due);
-  button.setAttribute('aria-label',due?'Настройки — требуется свежая защищённая резервная копия':'Настройки карты и данных');
-  button.title=due?'Скачайте свежую защищённую копию':'Настройки и резервная копия';
+  const shown=Date.parse(session?.lastBackupPromptAt||'');
+  $('backupPrompt').hidden=!(due&&(!Number.isFinite(shown)||shown>Date.now()||Date.now()-shown>30*86400000));
+  $('mapSettings').title='Настройки и резервная копия';
+}
+function acknowledgeBackupPrompt(){
+  if(!session)return;
+  session.lastBackupPromptAt=new Date().toISOString();
+  $('backupPrompt').hidden=true;
+  schedulePersist();
 }
 function formMode(mode){
   const updating=!!encryptedRecord;
@@ -203,7 +208,7 @@ function schedulePersist(){
 }
 function enqueuePersist(){
   if(!session||!sessionKey||!encryptedRecord)return persistQueue;
-  const snapshot={bundle:session.bundle,storage:{...session.storage},tickets:{...(session.tickets||{})},maptilerKey:session.maptilerKey||'',lastBackupAt:session.lastBackupAt||''};
+  const snapshot={bundle:session.bundle,storage:{...session.storage},tickets:{...(session.tickets||{})},maptilerKey:session.maptilerKey||'',lastBackupAt:session.lastBackupAt||'',lastBackupPromptAt:session.lastBackupPromptAt||''};
   const secret=sessionKey,salt=unbase64(encryptedRecord.salt);
   persistQueue=persistQueue.then(async()=>{
     const update=await encryptValue(snapshot,secret,salt);
@@ -228,6 +233,20 @@ const abraStation='https://www.rta.ae/links/promotions/en/jaddaf.html';
 const oldTimetable=/https:\/\/(?:www\.)?rta\.ae\/wps\/portal\/rta\/ae\/public-transport\/timetable(?:\?lang=en)?/g;
 const oldJaddaf=/https:\/\/(?:www\.)?rta\.ae\/wps\/portal\/rta\/ae\/home\/promotion\/jeddaf-abra(?:\?lang=en)?/g;
 const repairMarineURL=(text,promoReplacement=abraPDF)=>text.replace(oldTimetable,abraPDF).replace(oldJaddaf,promoReplacement);
+
+function optimizeLegacyMap(app,tools){
+  // Already-imported v48/v49 itineraries receive shorter failovers without
+  // reimporting the private JSON or touching any saved progress and tickets.
+  app=app.replace('mapLoadTimeout=setTimeout(()=>{if(!loaded)next()},7000);','mapLoadTimeout=setTimeout(()=>{if(!loaded)next()},4500);')
+    .replace('const timeout=setTimeout(()=>finish(false),9000);','const timeout=setTimeout(()=>finish(false),6500);')
+    .replace('},9500);','},5500);')
+    .replace('const vectorReady=!useCompactRaster&&canUseWebGLMap()?await loadVectorLibrary():false;',
+      'const vectorReady=!useCompactRaster&&!!MAPTILER_STREETS_STYLE&&canUseWebGLMap()?await loadVectorLibrary():false;')
+    .replace('activateVectorStyle(container,MAPTILER_STREETS_STYLE||FALLBACK_VECTOR_STYLE,{allowFreeFallback:Boolean(MAPTILER_STREETS_STYLE)});',
+      'activateVectorStyle(container,MAPTILER_STREETS_STYLE||FALLBACK_VECTOR_STYLE,{allowFreeFallback:false});');
+  tools=tools.replace('},12000);','},6500);').replace('},8500);','},4500);');
+  return {app,tools};
+}
 
 function unifyPrivateBackups(app,tools){
   // Older private JSONs contain multiple incompatible backup formats, one of
@@ -278,6 +297,7 @@ function buildPrivateHTML(bundle,storage,token,maptilerKey=''){
   if(!ticketFunction.test(tools))throw Error('Ticket storage adapter does not match the private-app version');
   tools=tools.replace(ticketFunction,'async function ticketOp(kind,id,record){return window.__vaultTicketOp(kind,id,record)}');
   const toolsHead='const localStorage=window.__vaultLocalStorage;const {BOOKINGS,EXTRAS}=window.__content;const {offlineMapSvg}=window.__companion;const {preferredTripContext,clockWithDay,analyzePlanB,weightedDailyBudget,spendingByDay,calendarForStages,extraRecommendations,validateImportedBundle,TRIP_START_UTC}=window.__logic;';
+  if(bundle.version<50)({app,tools}=optimizeLegacyMap(app,tools));
   ({app,tools}=unifyPrivateBackups(app,tools));
   const main=asScript('(function(){'+appHead+app+'\n})();')+asScript('(function(){'+bundle.scripts['route-focus.js']+'\n})();')+asScript('(function(){'+bundle.scripts['offline-atlas.js']+'\n})();')+asScript('(function(){'+toolsHead+tools+'\n})();');
   return html.replace('</body>',define+main+'</body>');
@@ -396,7 +416,7 @@ async function vaultStorageInfo(){
   let persisted=null,estimate=null,offlineReady=false;
   try{if(navigator.storage?.persisted)persisted=await navigator.storage.persisted()}catch{}
   try{if(navigator.storage?.estimate)estimate=await navigator.storage.estimate()}catch{}
-  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v10')}catch{}
+  try{offlineReady=(await caches.keys()).includes('dubai-days-private-shell-v11')}catch{}
   return {persisted,estimate,offlineReady};
 }
 async function refreshVaultHealth(){
@@ -491,6 +511,8 @@ $('mapSettings').addEventListener('click',()=>{
   $('mapSettingsDialog').showModal();
   void refreshVaultHealth();
 });
+$('backupPromptLater').addEventListener('click',acknowledgeBackupPrompt);
+$('backupPromptOpen').addEventListener('click',()=>{acknowledgeBackupPrompt();$('mapSettings').click()});
 $('cancelMapSettings').addEventListener('click',()=>$('mapSettingsDialog').close());
 $('closeVaultSettings').addEventListener('click',()=>$('mapSettingsDialog').close());
 $('exportVault').addEventListener('click',exportProtectedBackup);
