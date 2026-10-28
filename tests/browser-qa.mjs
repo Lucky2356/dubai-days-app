@@ -91,19 +91,23 @@ try{
       await page.locator('#unlockPassword').fill('BrowserQaPassword-2026!');
       await page.locator('#unlockButton').click();
       await page.locator('#running').waitFor({state:'visible',timeout:30000});
-      // The service worker must serve the shell while Chromium has no network.
+      // The service worker must serve the shell while the browser has no network.
       await page.evaluate(async()=>{await navigator.serviceWorker.ready});
       await page.reload();
       await page.locator('#unlockPassword').fill('BrowserQaPassword-2026!');
       await page.locator('#unlockButton').click();
       await page.locator('#running').waitFor({state:'visible',timeout:30000});
-      await context.setOffline(true);
-      await page.reload();
+      // Linux WebKit crashes on setOffline()+reload in Playwright 1.56;
+      // abort actual HTTP requests while leaving SW-controlled cached fetches intact.
+      if(engine==='webkit')await context.route('**/*',route=>route.abort('internetdisconnected'));
+      else await context.setOffline(true);
+      await page.reload({waitUntil:'domcontentloaded'});
       await page.locator('#unlockPassword').fill('BrowserQaPassword-2026!');
       await page.locator('#unlockButton').click();
       await page.locator('#running').waitFor({state:'visible',timeout:30000});
-      await context.setOffline(false);
-      console.log('PASS offline reload and unlocking from IndexedDB');
+      if(engine==='webkit')await context.unroute('**/*');
+      else await context.setOffline(false);
+      console.log(`PASS ${engine} cached reload and unlocking from IndexedDB`);
       console.log('PASS signed import, sandbox, lock/unlock and reload persistence');
       const restoreContext=await browser.newContext({viewport:{width:390,height:820},acceptDownloads:true});
       const restored=await restoreContext.newPage();await restored.goto(url);
