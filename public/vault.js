@@ -221,6 +221,30 @@ async function flush(){
   await persistQueue;
   if(lastPersistError)throw lastPersistError;
 }
+let updateRequested=false;
+async function safeUpdate(){
+  const button=$('applyUpdate');button.disabled=true;$('updateText').textContent='Сохраняем данные перед обновлением…';
+  try{
+    await flush();
+    const registration=await navigator.serviceWorker.getRegistration();
+    if(!registration?.waiting)throw Error('Обновление пока не готово. Попробуйте ещё раз.');
+    updateRequested=true;
+    $('updateText').textContent='Обновляем путеводитель…';
+    registration.waiting.postMessage({type:'APPLY_UPDATE'});
+  }catch(error){updateRequested=false;$('updateText').textContent='Обновление отменено: '+(error?.message||'ошибка сохранения');button.disabled=false}
+}
+function showUpdate(){if(updateRequested)return;$('updateNotice').hidden=false;$('updateText').textContent='Доступна новая версия путеводителя.'}
+function watchUpdate(registration){
+  if(registration.waiting&&navigator.serviceWorker.controller)showUpdate();
+  registration.addEventListener('updatefound',()=>{
+    const worker=registration.installing;
+    worker?.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)showUpdate()});
+  });
+}
+if('serviceWorker'in navigator){
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(updateRequested)location.reload()});
+  $('applyUpdate').addEventListener('click',safeUpdate);
+}
 const jsLiteral=value=>JSON.stringify(value).replaceAll('<','\\u003c').replaceAll('\u2028','\\u2028').replaceAll('\u2029','\\u2029');
 const safeInline=(source,tag)=>source.replace(new RegExp('</'+tag,'gi'),'<\\/'+tag);
 const asScript=source=>'<script>'+safeInline(source,'script')+'<\/script>';
@@ -547,5 +571,5 @@ try{
   if(!crypto?.subtle||!window.indexedDB)throw Error('Для защиты нужен современный браузер и HTTPS.');
   encryptedRecord=await database('get');
   formMode(encryptedRecord?'unlock':'import');
-  navigator.serviceWorker?.register?.('./sw.js').catch(()=>{});
+  navigator.serviceWorker?.register?.('./sw.js').then(watchUpdate).catch(()=>{});
 }catch(error){status(error.message||'Не удалось открыть защищённое хранилище.')}

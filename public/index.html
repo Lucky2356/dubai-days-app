@@ -8,10 +8,10 @@
   <title>Dubai Days · личный путеводитель</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./vault.css?v=11">
+  <link rel="stylesheet" href="./vault.css?v=12">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="./vault.js?v=11"></script>
+  <script type="module" src="./vault.js?v=12"></script>
 </head>
 <body>
   <main class="vault-layout" id="vaultGate">
@@ -66,6 +66,10 @@
     <div class="backup-prompt" id="backupPrompt" role="status" hidden><span>Рекомендуем сохранить зашифрованную копию маршрута и билетов.</span><div class="backup-prompt-actions"><button type="button" id="backupPromptOpen">Открыть настройки</button><button type="button" id="backupPromptLater">Позже</button></div></div>
     <iframe id="privateFrame" title="Ваш личный путеводитель" referrerpolicy="no-referrer" allow="geolocation" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-modals allow-forms allow-downloads"></iframe>
   </section>
+  <aside id="updateNotice" class="update-notice" hidden role="status" aria-live="polite">
+    <span id="updateText">Доступна новая версия путеводителя.</span>
+    <button type="button" id="applyUpdate">Обновить</button>
+  </aside>
   <dialog class="map-dialog" id="mapSettingsDialog" aria-labelledby="mapSettingsTitle">
     <div class="vault-dialog-header"><h2 id="mapSettingsTitle">Настройки</h2><button type="button" id="closeVaultSettings" aria-label="Закрыть настройки">×</button></div>
     <section class="vault-backup" aria-label="Резервная копия и обновление">
