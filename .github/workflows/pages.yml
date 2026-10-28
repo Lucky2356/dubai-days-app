@@ -1,0 +1,48 @@
+name: Publish Dubai Days
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Get site files
+        uses: actions/checkout@v4
+
+      - name: Check that private itinerary is not being published
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find public -type f \( -iname '*.json' -o -iname '*private-import*' -o -iname '*itinerary*' \) -print | grep -q .; then
+            echo 'ERROR: Refusing to publish a JSON or private itinerary file.' >&2
+            exit 1
+          fi
+          node --check public/vault.js
+          node --check public/sw.js
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload public files only
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+
+      - name: Publish site
+        id: deployment
+        uses: actions/deploy-pages@v4
